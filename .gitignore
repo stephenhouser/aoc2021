@@ -1,0 +1,13 @@
+input.txt
+test.txt
+test*.txt
+answer.txt
+*.o
+solution
+.vscode
+build
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+_deps/
+Makefile
