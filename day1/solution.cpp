@@ -16,7 +16,7 @@ using namespace std;
 /* verbosity level; 0 = nothing extra, 1 = more... Set by command line. */
 int verbose = 0;
 
-using data_t = vector<string>;
+using data_t = vector<size_t>;
 using result_t = string;
 
 const data_t read_data(const string &filename);
@@ -24,8 +24,19 @@ template <typename T> void print_result(T result, chrono::duration<double, milli
 
 
 /* Part 1 */
-const result_t part1([[maybe_unused]] const data_t &data) {
-	return to_string(data.size());
+const result_t part1(const data_t &data) {
+	size_t result = 0;
+
+	size_t last = data[0];
+	for (size_t i = 1; i < data.size(); i++) {
+		if (data[i] > last) {
+			result++;
+		}
+
+		last = data[i];
+	}
+
+	return to_string(result);
 }
 
 const result_t part2([[maybe_unused]] const data_t &data) {
@@ -40,7 +51,7 @@ const data_t read_data(const string &filename) {
 	string line;
 	while (getline(ifs, line)) {
 		if (!line.empty()) {
-			data.push_back(line);
+			data.push_back(stoul(line));
 		}
 	}
 

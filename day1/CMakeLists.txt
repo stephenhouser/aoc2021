@@ -28,11 +28,11 @@ target_compile_options(${DAY_TARGET}
 #		COMMAND ${DAY_TARGET} input.txt)
 
 add_custom_target(test${DAY} 
-	cd ${PROJECT_SOURCE_DIR} \; ./${DAY_TARGET} -v12 test.txt
+	cd ${PROJECT_SOURCE_DIR} \; ./${DAY_TARGET} test.txt
 	DEPENDS ${DAY_TARGET})  
 
 add_custom_target(live${DAY}
-	cd ${PROJECT_SOURCE_DIR} \; ./${DAY_TARGET} -v12 input.txt
+	cd ${PROJECT_SOURCE_DIR} \; ./${DAY_TARGET} input.txt
 	DEPENDS ${DAY_TARGET})
 	
 add_custom_target(clean${DAY} cmake-clean)
