@@ -36,8 +36,19 @@ const result_t part1(const data_t &data) {
 }
 
 const result_t part2(const data_t &data) {
-	size_t result = data.size();
+	point_t submarine{0, 0, 0};
+	for (const auto &dir : data) {
+		if (dir.x > 0) {		// increase x and increase depth by aim * x
+			submarine.x += dir.x;
+			submarine.y += submarine.z * dir.x;
+		} else if (dir.y < 0) { // up x, decrease aim by x
+			submarine.z += dir.y;
+		} else if (dir.y > 0) {	// down x, increase aim by x
+			submarine.z += dir.y;
+		}
+	}
 
+	auto result = submarine.x * submarine.y;
 	return to_string(result);
 }
 
