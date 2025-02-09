@@ -24,7 +24,7 @@ template <typename T> void print_result(T result, chrono::duration<double, milli
 
 
 /* Part 1 */
-const result_t part1(const data_t &data) {
+size_t increasing(const data_t &data) {
 	size_t result = 0;
 
 	size_t last = data[0];
@@ -36,11 +36,23 @@ const result_t part1(const data_t &data) {
 		last = data[i];
 	}
 
+	return result;
+}
+
+const result_t part1(const data_t &data) {
+	size_t result = increasing(data);
 	return to_string(result);
 }
 
 const result_t part2([[maybe_unused]] const data_t &data) {
-	return to_string(0);
+	vector<size_t> threesome;
+
+	for (size_t i = 2; i < data.size(); i++) {
+		threesome.push_back(data[i-2] + data[i-1] + data[i]);
+	}
+
+	size_t result = increasing(threesome);
+	return to_string(result);
 }
 
 const data_t read_data(const string &filename) {
