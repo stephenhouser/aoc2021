@@ -22,45 +22,90 @@ using result_t = string;
 const data_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
 
+/* Return a pair indicating how many zeros and ones there are
+ * in the n-th bit across a vector of strings (of 0's and 1's).
+ */
+pair<size_t, size_t> count_bits(const data_t &data, size_t bit) {
+	pair<size_t, size_t> bit_count;
+
+	for (const auto &s : data) {
+		if (s[bit] == '0') {
+			bit_count.first++;
+		} else {
+			bit_count.second++;
+		}
+	}
+
+	return bit_count;
+}
+
+/* Return a vector of pairs indicating how many zeros and ones there are
+ * in each bit position (column) across the vector of strings (of 1's and 0's)
+ */
+vector<pair<size_t, size_t>> count_all_bits(const data_t &data) {
+	vector<pair<size_t, size_t>> bit_counts;
+
+	for (size_t i = 0; i < data[0].size(); i++) {
+		bit_counts.push_back(count_bits(data, i));
+	}
+
+	return bit_counts;
+}
+
 /* Part 1 */
 const result_t part1(const data_t &data) {
-	auto count_ones = [](vector<size_t> counts, const string &s) {
-		for (size_t i = 0; i < s.size(); i++) {
-			counts[i] += (s[i] == '1') ? 1 : 0;
-		}
-		return counts;
-	};
-
-	// accumulate to count the 1's in each bit location
-	// then transform to 1 if more than half (threshold) are 1's, 0 otherwise
-	// resulting vector has 1 or 0 for whichever is most common bit across data
-	size_t threshold = data.size() / 2;
-	vector<size_t> bit_counts(data[0].size());
-	auto bits = accumulate(data.begin(), data.end(), bit_counts, count_ones) | 
-		views::transform([threshold](size_t one_count) {
-			return (one_count > threshold) ? 1 : 0;
-		});
+	auto bits = count_all_bits(data);
 
 	// create an unsigned int for the most common bits
 	size_t mcb = accumulate(bits.begin(), bits.end(), (size_t)0,
-		[](size_t result, size_t bit) {
-			return (result << 1) | (bit & 0x01);
-		});
+		[](size_t result, pair<size_t, size_t> bit) {
+			return (result << 1) | (bit.second > bit.first);
+	});
 
-	// create an unsigned int for the least common bits
-	size_t lcb = accumulate(bits.begin(), bits.end(), (size_t)0,
-		[](size_t result, size_t bit) {
-			return (result << 1) | (~bit & 0x01);
-		});
+	// compute least common bits as inverse of most common
+	// leave upper bits in long word (masked) as 0's
+	size_t mask = (1 << data[0].size()) - 1;
+	size_t lcb = ~mcb & mask;
 
 	// result is most common * least common
 	return to_string(mcb * lcb);
 }
 
 const result_t part2([[maybe_unused]] const data_t &data) {
-	size_t result = 0;
+	data_t o2_candidates{data};
+	data_t co2_candidates{data};
 
-	return to_string(result);
+	// readinstructions carefully.
+	// We need to eliminate candidates based only on candidates
+	// that remain after each round of elimination.
+
+	for (size_t bit = 0; bit < data[0].size(); bit++) {
+		// erase non-conforming candidates from each pool of candidates
+		// if there are more than 1 candidate remaining		
+		if (o2_candidates.size() > 1) {
+			auto o2_bits = count_bits(o2_candidates, bit);
+			auto o2_check = (o2_bits.second >= o2_bits.first) ? '1' : '0';
+			erase_if(o2_candidates, [bit, o2_check](const string &s) {
+				return s[bit] != o2_check ;
+			});
+		}
+
+		if (co2_candidates.size() > 1) {
+			auto co2_bits = count_bits(co2_candidates, bit);
+			auto co2_check = (co2_bits.second < co2_bits.first) ? '1' : '0';
+			erase_if(co2_candidates, [bit, co2_check](const string &s) {
+				return s[bit] != co2_check;
+			});
+		}
+	}
+
+	assert(o2_candidates.size() == 1);
+	assert(co2_candidates.size() == 1);
+
+	// convert single remaining candidates to integers
+	size_t o2_rating = stoul(o2_candidates[0], nullptr, 2);
+	size_t co2_rating = stoul(co2_candidates[0], nullptr, 2);
+	return to_string(o2_rating * co2_rating);
 }
 
 const data_t read_data(const string &filename) {
