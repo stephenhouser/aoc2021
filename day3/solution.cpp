@@ -13,14 +13,12 @@
 
 using namespace std;
 
-/* verbosity level; 0 = nothing extra, 1 = more... Set by command line. */
-int verbose = 0;
-
 using data_t = vector<string>;
 using result_t = string;
 
 const data_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
+
 
 /* Return a pair indicating how many zeros and ones there are
  * in the n-th bit across a vector of strings (of 0's and 1's).
@@ -64,7 +62,7 @@ const result_t part1(const data_t &data) {
 
 	// compute least common bits as inverse of most common
 	// leave upper bits in long word (masked) as 0's
-	size_t mask = (1 << data[0].size()) - 1;
+	size_t mask = (1 << data[0].size()) - 1ul;
 	size_t lcb = ~mcb & mask;
 
 	// result is most common * least common

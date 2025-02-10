@@ -13,9 +13,6 @@
 
 using namespace std;
 
-/* verbosity level; 0 = nothing extra, 1 = more... Set by command line. */
-int verbose = 0;
-
 using data_t = vector<size_t>;
 using result_t = string;
 

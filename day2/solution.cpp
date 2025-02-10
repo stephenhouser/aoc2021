@@ -15,14 +15,12 @@
 
 using namespace std;
 
-/* verbosity level; 0 = nothing extra, 1 = more... Set by command line. */
-int verbose = 0;
-
 using data_t = vector<point_t>;
 using result_t = string;
 
 const data_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
+
 
 /* Part 1 */
 const result_t part1(const data_t &data) {
