@@ -29,20 +29,19 @@ void show(const unordered_map<size_t, size_t> &fish) {
 	cout << endl;
 }
 
-size_t spawn_fish(const data_t &starting_fish, size_t days) {
-	// fish: age, count(that are that age)
-	unordered_map<size_t, size_t> fish;
-	unordered_map<size_t, size_t> next_fish;
+size_t spawn_fish(const data_t &starting_fish, size_t days, size_t max_age = 8) {
+	vector<size_t> fish(max_age+1, 0);
 
-	// add starting fish
+	// count fish at each age in starting_fish
 	for (auto f : starting_fish) {
 		fish[f]++;
 	}
 
 	for (size_t day = 0; day < days; day++) {
-		// cout << "Day " << day << endl;
-		// show(fish);
-		for (auto [age, count] : fish) {
+		vector<size_t> next_fish(max_age+1, 0);
+
+		for (size_t age = 0; age <= max_age; age++) {
+			size_t count = fish[age];
 			if (age == 0)  {
 				next_fish[6] += count;
 				next_fish[8] += count;
@@ -52,13 +51,9 @@ size_t spawn_fish(const data_t &starting_fish, size_t days) {
 		}
 
 		swap(fish, next_fish);
-		next_fish.clear();
 	}
 
-	size_t result = transform_reduce(fish.begin(), fish.end(), (size_t)0, 
-		std::plus{}, 
-		[](auto val) { return val.second; });
-
+	size_t result = reduce(fish.begin(), fish.end());
 	return result;
 }
 
