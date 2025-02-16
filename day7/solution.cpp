@@ -23,33 +23,51 @@ using result_t = string;
 const data_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
 
-size_t move_crabs(const data_t &starting_crabs) {
+
+/* Part 1 */
+const result_t part1(const data_t &starting_crabs) {
 	// put crab subs into vector in order
 	vector<size_t> crabs = starting_crabs;
 	sort(crabs.begin(), crabs.end());
 
 	// compute the median -- it will be the closest to all points
-	long median = (long)crabs[crabs.size()/2];
+	size_t median = crabs[crabs.size()/2];
 
 	// calculate distance of each crab to median
 	auto distance = crabs |
 			views::transform([median](const size_t crab) {
-				return (size_t)abs((long)crab - median);
+				return (size_t)abs((long)crab - (long)median);
 			});
 
 	// reduce (sum) to get fuel cost
 	size_t fuel_cost = reduce(distance.begin(), distance.end());
-	return fuel_cost;
-}
-
-/* Part 1 */
-const result_t part1(const data_t &starting_crabs) {
-	auto fuel_cost = move_crabs(starting_crabs);
 	return to_string(fuel_cost);
 }
 
-const result_t part2([[maybe_unused]] const data_t &starting_fish) {
-	return to_string(0);
+/* Return cost for all crab subs to get to pos using
+ * more expensive (n * (n + 1) / 2) (Gaussian sum).
+ */
+size_t fuel_expense(size_t pos, const data_t &crabs) {
+	auto distance = crabs |
+			views::transform([pos](const size_t crab) {
+				size_t distance = (size_t)abs((long)crab - (long)pos);
+				// (n * (n + 1)) / 2
+				return (distance * (distance + 1)) / 2;
+			});
+
+	return reduce(distance.begin(), distance.end());
+}
+
+const result_t part2(const data_t &crabs) {
+	// compute the average -- it will be the closest to all points
+	size_t total = reduce(crabs.begin(), crabs.end());
+	size_t average = total / crabs.size();
+
+	// take the min of the average rounded down and rounded up.
+	size_t fuel_cost = min(fuel_expense(average, crabs), 
+						   fuel_expense(average+1, crabs));
+
+	return to_string(fuel_cost);
 }
 
 const data_t read_data(const string &filename) {
