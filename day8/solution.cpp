@@ -31,19 +31,23 @@ unordered_set<char> set_for(const string &str) {
 
 using pattern_t = unordered_set<char>;
 
-string difference(const string &p1, const string &p2) {
+/* Return string of characters in s1 but not s2 (s1 - s2) */
+string difference(const string &s1, const string &s2) {
 	string result;
-	for (const char p : p1) {
-		if (!p2.contains(p)) {
-			result.push_back(p);
+	for (const char ch : s1) {
+		if (!s2.contains(ch)) {
+			result.push_back(ch);
 		}
 	}
 
 	return result;
 }
 
-
-/* [0] is the char pattern for 0, [1] is the char pattern for 1*/
+/* Return vector of (string) digit codes for 0, 1, 2, ... 9
+ * Based on the observed patterns from input. Done by deduction.
+ * [0] is the char pattern for 0, ex 'abfg'
+ * [1] is the char pattern for 1
+ */
 const vector<string> decode(const vector<string> &patterns) {
 	vector<string> digit_pattern(10, "");
 	vector<string> six_seg;
@@ -99,25 +103,39 @@ const vector<string> decode(const vector<string> &patterns) {
 	return digit_pattern;
 }
 
-size_t decode_digit(const string &code, const vector<string> &digit_codes) {
-	for (size_t digit = 0; digit < digit_codes.size(); digit++) {
-		if (code == digit_codes[digit]) {
-			return digit;
-		}
-	}
-
-	return 0;
-}
-
+/* Return the integer value for the vector of output codes */
 size_t decode(const vector<string> &codes, const vector<string> &digit_codes) {
 	size_t decoded = 0;
+
+	/* Return the integer value for a single output code */
+	auto decode_digit = [&digit_codes](const string &code) -> size_t {
+		for (size_t digit = 0; digit < digit_codes.size(); digit++) {
+			if (code == digit_codes[digit]) {
+				return digit;
+			}
+		}
+	
+		return 0;	
+	};
+
 	for (const auto &code : codes) {
-		auto digit = decode_digit(code, digit_codes);
-		cout << "\t" << code << " = " << digit << endl;
-		decoded = (decoded * 10) + digit;
+		decoded = (decoded * 10) + decode_digit(code);
 	}
 
 	return decoded;
+}
+
+/* Return a vector of strings where the characters within each string are sorted */
+vector<string> sorted_strings(const vector<string> &strings) {
+	vector<string> result;
+
+	for (const auto &str : strings) {
+		string s{str};
+		sort(s.begin(), s.end());
+		result.push_back(s);
+	}
+
+	return result;
 }
 
 /* Part 1 */
@@ -127,9 +145,8 @@ const result_t part1(const data_t &data) {
 	vector<string> digit_pattern(10, "");
 
 	for (const auto &[patterns, output] : data) {
-		cout << "patterns=" << patterns << "  ";
-		cout << "output=" << output << endl;
-		
+		// cout << "patterns=" << patterns << "  ";
+		// cout << "output=" << output << endl;		
 		for (const auto &value : output) {
 			if (value.size() == 2 /* 1 */ || 
 				value.size() == 3 /* 7 */ ||
@@ -147,10 +164,13 @@ const result_t part2(const data_t &data) {
 	size_t result = 0;
 
 	for (const auto &[patterns, output] : data) {
-		auto digit_patterns = decode(patterns);
-		size_t intermediate = decode(output, digit_patterns);
+		// the output order of letters is not always the same as input and pattern
+		// shortcut to rewriting is to just sort the chars in the strings then
+		// they will always match.
+		const auto s_output = sorted_strings(output);
 
-		cout << output << " => " << intermediate << endl;
+		auto digit_patterns = sorted_strings(decode(patterns));
+		size_t intermediate = decode(s_output, digit_patterns);
 
 		result += intermediate;
 	}
