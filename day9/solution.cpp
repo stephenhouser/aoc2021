@@ -11,9 +11,12 @@
 #include <algorithm>	// sort
 #include <numeric>		// max, reduce, etc.
 
+#include "point.h"
+#include "charmap.h"
+
 using namespace std;
 
-using data_t = vector<string>;
+using data_t = charmap_t;
 using result_t = string;
 
 const data_t read_data(const string &filename);
@@ -21,27 +24,36 @@ template <typename T> void print_result(T result, chrono::duration<double, milli
 
 
 /* Part 1 */
-const result_t part1([[maybe_unused]] const data_t &data) {
-	return to_string(data.size());
+const result_t part1(const data_t &map) {
+	auto is_low = [&map](const point_t &point, char ch) {
+		// is a low point if all neighbors have larger value
+		auto neighbors = map.neighbors_of(point);
+		return all_of(neighbors.begin(), neighbors.end(), [ch](const auto &n) {
+				const auto &[neighbor, n_ch] = n;
+				return ch < n_ch;
+			});
+	};
+
+	auto lows = map.all_points() |
+		views::filter([&map, is_low](const auto &p) {	// keep low points
+			const auto &[point, p_ch] = p;
+			return is_low(point, p_ch);
+		}) |
+		views::transform([](const auto &p) {			// transform to risk level
+			return (size_t)(p.second + 1) - '0';
+		}) |
+		ranges::to<vector<size_t>>();					// back to vector
+
+	size_t result = reduce(lows.begin(), lows.end());
+	return to_string(result);
 }
 
-const result_t part2([[maybe_unused]] const data_t &data) {
-	return to_string(0);
+const result_t part2(const data_t &map) {
+	return to_string(map.size_x);
 }
 
 const data_t read_data(const string &filename) {
-	data_t data;
-
-	std::ifstream ifs(filename);
-
-	string line;
-	while (getline(ifs, line)) {
-		if (!line.empty()) {
-			data.push_back(line);
-		}
-	}
-
-	return data;
+	return charmap_t::from_file(filename);
 }
 
 template <typename T>

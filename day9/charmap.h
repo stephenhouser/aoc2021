@@ -206,20 +206,39 @@ struct charmap_t {
                           std::views::transform([this, y](size_t x) {
                               return tuple<size_t, size_t, char>(x, y, data[y][x]);
                           });
-               }) | std::views::join;
+               }) |
+			   std::views::join;
     }
 
 #if defined(POINT_T_H)
+	vector<point_t> _directions{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+	auto neighbors_of(const point_t &p) const {
+		// vector<pair<point_t, char>> neighbors;
+		// for (const auto &d : directions) {
+		// 	if (this->is_valid(p+d)) {
+		// 		neighbors.push_back({p+d, this->get(p+d)});
+		// 	}
+		// }
+		// return neighbors;
+		return _directions |
+			std::views::filter([this, &p](const point_t &direction) {
+				return this->is_valid(p+direction);
+			}) |
+			std::views::transform([this, &p](const point_t &direction) {
+				return pair<point_t, char>(p+direction, this->get(p+direction));
+			});
+	}
+
 	// std::views iterator for all point_t with character
  	 auto all_points() const {
         return std::views::iota(0u, data.size()) |
-               std::views::transform([this](size_t i) {
-                   return std::views::iota(0u, data[i].size()) |
-                          std::views::transform([this, i](size_t j) {
-                              return pair<point_t, char>({i, j}, data[i][j]);
+               std::views::transform([this](size_t y) {
+                   return std::views::iota(0u, this->data[y].size()) |
+                          std::views::transform([this, y](size_t x) {
+                              return pair<point_t, char>({x, y}, this->data[y][x]);
                           });
-               }) |
-               std::views::join;
+               }) | 
+			   std::views::join;
     }
 
 	/* Iterate/Enumerate over all the points in the map
