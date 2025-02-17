@@ -22,11 +22,11 @@ using result_t = string;
 const data_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
 
-
-/* Part 1 */
-const result_t part1(const data_t &map) {
+/* Return range of low points on the map */
+auto low_points(const data_t &map) {
+	// test if point and char is a low point on the map.
+	// true if all neighbors have larger value, false otherwise
 	auto is_low = [&map](const point_t &point, char ch) {
-		// is a low point if all neighbors have larger value
 		auto neighbors = map.neighbors_of(point);
 		return all_of(neighbors.begin(), neighbors.end(), [ch](const auto &n) {
 				const auto &[neighbor, n_ch] = n;
@@ -34,15 +34,26 @@ const result_t part1(const data_t &map) {
 			});
 	};
 
-	auto lows = map.all_points() |
+	return map.all_points() |
 		views::filter([&map, is_low](const auto &p) {	// keep low points
 			const auto &[point, p_ch] = p;
 			return is_low(point, p_ch);
 		}) |
-		views::transform([](const auto &p) {			// transform to risk level
-			return (size_t)(p.second + 1) - '0';
+		views::transform([](const auto &p) {			// return only points
+			return p.first;
+		});
+		//  |
+		// ranges::to<vector<point_t>>();				// back to vector
+}
+
+/* Part 1 */
+const result_t part1(const data_t &map) {
+	// transform low points to vector of risk levels
+	auto lows = low_points(map) |
+		views::transform([&map](const auto &point) {
+			return (size_t)(map.get(point) + 1) - '0';
 		}) |
-		ranges::to<vector<size_t>>();					// back to vector
+		ranges::to<vector<size_t>>();
 
 	size_t result = reduce(lows.begin(), lows.end());
 	return to_string(result);
