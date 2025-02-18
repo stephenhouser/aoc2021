@@ -10,6 +10,9 @@
 #include <ranges>		// ranges and views
 #include <algorithm>	// sort
 #include <numeric>		// max, reduce, etc.
+#include <unordered_set>
+#include <queue>
+#include <algorithm>
 
 #include "point.h"
 #include "charmap.h"
@@ -48,19 +51,58 @@ auto low_points(const data_t &map) {
 
 /* Part 1 */
 const result_t part1(const data_t &map) {
+	auto risk_level = [&map](const auto &point) {
+		return (size_t)(map.get(point) + 1) - '0';
+	};
+
 	// transform low points to vector of risk levels
 	auto lows = low_points(map) |
-		views::transform([&map](const auto &point) {
-			return (size_t)(map.get(point) + 1) - '0';
-		}) |
+		views::transform([&risk_level](const auto &point) { return risk_level(point); }) |
 		ranges::to<vector<size_t>>();
 
 	size_t result = reduce(lows.begin(), lows.end());
 	return to_string(result);
 }
 
+
 const result_t part2(const data_t &map) {
-	return to_string(map.size_x);
+	// /* Returns the size of the basin with low point. 
+	// * basin is defined by all points connected to low bordered by '9's */
+	auto basin_size = [&map](const point_t &low) {
+		// flood fill
+		unordered_set<point_t> confirmed;
+		queue<point_t> tentative;
+		tentative.push(low);
+
+		while (!tentative.empty()) {
+			auto point = tentative.front();
+			tentative.pop();
+			if (!confirmed.contains(point)) {
+				confirmed.insert(point);
+
+				for (const auto &[neighbor, ch] : map.neighbors_of(point)) {
+					if (ch != '9') {
+						tentative.push(neighbor);
+					}
+				}
+			}
+		}
+
+		// return size of filled area (the basin)
+		return confirmed.size();
+	};
+
+	// transform low points to vector of risk levels
+	auto basins = low_points(map) |
+		views::transform([&basin_size](const auto &point) { return basin_size(point); }) |
+		ranges::to<vector<size_t>>();
+
+	// really annoying that you cannot sort as part of a pipeline.
+	ranges::sort(basins, std::greater<size_t>());
+	auto top3 = basins | views::take(3) | ranges::to<vector<size_t>>();
+	size_t result = reduce(top3.begin(), top3.end(), 1u, std::multiplies<size_t>());
+
+	return to_string(result);
 }
 
 const data_t read_data(const string &filename) {
