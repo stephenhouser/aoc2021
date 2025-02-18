@@ -43,42 +43,84 @@ string reduce_string(const string &src) {
 	return work;
 }
 
-size_t score_char(const char ch) {
-	const unordered_map<char, size_t> char_scores = {
-		{')', 3},
-		{']', 57},
-		{'}', 1197},
-		{'>', 25137},
-	};
+size_t score_corrupt_string(const string &str) {
+	auto score_char = [](const char ch) {
+		const unordered_map<char, size_t> char_scores = {
+			{')', 3}, {']', 57}, {'}', 1197}, {'>', 25137} 
+		};
 	
-	if (char_scores.contains(ch)) {
-		return char_scores.at(ch);
+		return char_scores.contains(ch) ? char_scores.at(ch) : 0;
+	};
+
+	auto pos = str.find_first_of(")}]>");
+	if (pos != str.npos)  {
+		return score_char(str[pos]);
 	}
 
-	return 0;
+	return (size_t)0;
+}
+
+size_t score_closing_string(const string &str) {
+	auto score_char = [](const char ch) {
+		const unordered_map<char, size_t> char_scores = {
+			{')', 1}, {']', 2}, {'}', 3}, {'>', 4} 
+		};
+	
+		return char_scores.contains(ch) ? char_scores.at(ch) : 0;
+	};
+
+	size_t score = 0;
+	for (size_t i = 0; i < str.size(); i++) {
+		score = (score * 5) + score_char(str[i]);
+	}
+
+	return score;
 }
 
 /* Part 1 */
 const result_t part1(const data_t &data) {
-
-	auto score_string = [](const string &str) {
-		auto pos = str.find_first_of(")}]>");
-		if (pos != str.npos)  {
-			return score_char(str[pos]);
-		}
-
-		return (size_t)0;
+	auto is_corrupt = [](const string &str) {
+		return str.find_first_of(")}]>") != str.npos;
 	};
 
 	auto scores = data |
 		views::transform(reduce_string) |
-		views::transform(score_string);
+		views::filter(is_corrupt) |
+		views::transform(score_closing_string);
 
 	size_t result = reduce(scores.begin(), scores.end());
 	return to_string(result);
 }
 
-const result_t part2([[maybe_unused]] const data_t &data) {
+const result_t part2(const data_t &data) {
+	auto is_incomplete = [](const string &str) {
+		return str.find_first_of(")}]>") == str.npos;
+	};
+
+	auto closing_chars = [](const string &str) {
+		string closer;
+		for (auto it = str.rbegin(); it != str.rend(); it++) {
+			switch (*it) {
+				case '(': closer.push_back(')'); break;
+				case '{': closer.push_back('}'); break;
+				case '[': closer.push_back(']'); break;
+				case '<': closer.push_back('>'); break;
+				default: break;
+			}
+		}
+		return closer;
+	};
+
+	auto incomplete = data | 
+		views::transform(reduce_string) |
+		views::filter(is_incomplete) | 
+		views::transform(closing_chars) |
+		ranges::to<vector<string>>();
+
+	cout << incomplete.size() << endl;
+	for (const auto &s : incomplete) {
+		cout << " --> " << reduce_string(s) << endl;
+	}
 	return to_string(0);
 }
 
