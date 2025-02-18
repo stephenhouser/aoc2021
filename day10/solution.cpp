@@ -60,6 +60,23 @@ size_t score_corrupt_string(const string &str) {
 	return (size_t)0;
 }
 
+/* Part 1 */
+const result_t part1(const data_t &data) {
+	// is this reduced string a corrupt string
+	auto is_corrupt = [](const string &str) {
+		return str.find_first_of(")}]>") != str.npos;
+	};
+
+	auto scores = data |
+		views::transform(reduce_string) |
+		views::filter(is_corrupt) |
+		views::transform(score_corrupt_string);
+
+	size_t result = reduce(scores.begin(), scores.end());
+	return to_string(result);
+}
+
+
 size_t score_closing_string(const string &str) {
 	auto score_char = [](const char ch) {
 		const unordered_map<char, size_t> char_scores = {
@@ -77,30 +94,17 @@ size_t score_closing_string(const string &str) {
 	return score;
 }
 
-/* Part 1 */
-const result_t part1(const data_t &data) {
-	auto is_corrupt = [](const string &str) {
-		return str.find_first_of(")}]>") != str.npos;
-	};
-
-	auto scores = data |
-		views::transform(reduce_string) |
-		views::filter(is_corrupt) |
-		views::transform(score_closing_string);
-
-	size_t result = reduce(scores.begin(), scores.end());
-	return to_string(result);
-}
-
 const result_t part2(const data_t &data) {
+	// is this reduced string an incomplete string
 	auto is_incomplete = [](const string &str) {
 		return str.find_first_of(")}]>") == str.npos;
 	};
 
+	// 
 	auto closing_chars = [](const string &str) {
 		string closer;
-		for (auto it = str.rbegin(); it != str.rend(); it++) {
-			switch (*it) {
+		for (auto ch : str) {
+			switch (ch) {
 				case '(': closer.push_back(')'); break;
 				case '{': closer.push_back('}'); break;
 				case '[': closer.push_back(']'); break;
@@ -111,17 +115,19 @@ const result_t part2(const data_t &data) {
 		return closer;
 	};
 
-	auto incomplete = data | 
+	// score the strings needed to close each incomplete string
+	auto scores = data | 
 		views::transform(reduce_string) |
 		views::filter(is_incomplete) | 
 		views::transform(closing_chars) |
-		ranges::to<vector<string>>();
+		views::transform(score_closing_string) |
+		ranges::to<vector<size_t>>();
 
-	cout << incomplete.size() << endl;
-	for (const auto &s : incomplete) {
-		cout << " --> " << reduce_string(s) << endl;
-	}
-	return to_string(0);
+	// answer is the middle score from sorted list of scores
+	ranges::sort(scores);
+	size_t result = scores[scores.size()/2];
+
+	return to_string(result);
 }
 
 const data_t read_data(const string &filename) {
