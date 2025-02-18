@@ -60,17 +60,21 @@ size_t score_char(const char ch) {
 
 /* Part 1 */
 const result_t part1(const data_t &data) {
-	size_t result = 0;
 
-	for (const auto &str : data) {
-		auto work = reduce_string(str);
+	auto score_string = [](const string &str) {
+		auto pos = str.find_first_of(")}]>");
+		if (pos != str.npos)  {
+			return score_char(str[pos]);
+		}
 
-		auto pos = work.find_first_of(")}]>");
-		if (pos != work.npos)  {
-			result += score_char(work[pos]);
-		}	
-	}
+		return (size_t)0;
+	};
 
+	auto scores = data |
+		views::transform(reduce_string) |
+		views::transform(score_string);
+
+	size_t result = reduce(scores.begin(), scores.end());
 	return to_string(result);
 }
 
