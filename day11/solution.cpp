@@ -86,21 +86,26 @@ size_t flash(charmap_t &map, size_t time) {
 
 /* Part 1 */
 const result_t part1(const data_t &start_map) {
-	// 100 steps
-
 	size_t flashes = 0;
 	charmap_t map = start_map;
-	cout << map;
 	for (size_t step = 0; step < 100; step++) {
 		flashes += flash(map, 1);
 	}
 
-	cout << map;
 	return to_string(flashes);
 }
 
-const result_t part2([[maybe_unused]] const data_t &map) {
-	return to_string(0);
+const result_t part2(const data_t &start_map) {
+	charmap_t map = start_map;
+	size_t step = 0;
+	size_t flashes = 0;
+
+	while (flashes != (map.size_x * map.size_y)) {
+		flashes = flash(map, 1);
+		step++;
+	}
+
+	return to_string(step);
 }
 
 const data_t read_data(const string &filename) {
