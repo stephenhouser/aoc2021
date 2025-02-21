@@ -26,6 +26,10 @@ using result_t = string;
 const data_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
 
+bool is_end_cave(const string &name) {
+	return name == "start" || name == "end";
+}
+
 bool is_big_cave(const string &name) {
 	return 'A' <= name[0] && name[0] <= 'Z';
 }
@@ -34,30 +38,34 @@ bool is_small_cave(const string &name) {
 	return !is_big_cave(name);
 }
 
+bool in_path(const string &cave, const vector<string> &path) {
+	for (const auto &p : path) {
+		if (p == cave) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /* Part 1 */
 const result_t part1(const data_t &data) {
 	vector<vector<string>> paths;
 
 	// breadth first search, collecting paths when we reach "end"
-	std::function<void(data_t, const string &, vector<string>)> bfs;
-	bfs = [&paths, &bfs](data_t cavemap, const string &current, vector<string> path) {
+	std::function<void(const data_t &, const string &, vector<string>)> bfs;
+	bfs = [&paths, &bfs](const data_t &cavemap, const string &current, vector<string> path) {
 		path.emplace_back(current);
 		if (current == "end") {
 			paths.emplace_back(path);
 			return;
 		}
 
-		auto neighbors = cavemap[current];
-
-		// cannot traverse small caves more than once
-		// so we remove it from the map we pass to our recursive children
-		if (is_small_cave(current)) {
-			cavemap.erase(current);
-		}
-
 		// iterate over all neighbors of the current node (breadth first)
-		for (const auto &neighbor : neighbors) {
-			bfs(cavemap, neighbor, path);
+		for (const auto &neighbor : cavemap.at(current)) {
+			if (!is_small_cave(neighbor) || !in_path(neighbor, path)) {
+				bfs(cavemap, neighbor, path);
+			}
 		}
 	};
 	
@@ -79,47 +87,31 @@ string flatten(const vector<string> &vec) {
 	return result;
 }
 
-bool in_path(const string &cave, const vector<string> &path) {
-	for (const auto &p : path) {
-		if (p == cave) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
 const result_t part2(const data_t &data) {
-	// vector<vector<string>> paths;
+	// maintain as set of strings for easy de-duplication
 	unordered_set<string> paths;
 
 	// breadth first search, collecting paths when we reach "end"
-	std::function<void(data_t, const string &, string promoted, vector<string>)> bfs;
-	bfs = [&paths, &bfs](data_t cavemap, const string &current, string promoted, vector<string> path) {
+	std::function<void(const data_t, const string &, const string &, vector<string>)> bfs;
+	bfs = [&paths, &bfs](const data_t cavemap, 
+							const string &current, const string &promoted, 
+							vector<string> path) {
 		path.emplace_back(current);
 		if (current == "end") {
-			// paths.emplace_back(path);
 			paths.insert(flatten(path));
 			return;
 		}
 
-		auto neighbors = cavemap[current];
-
-		// cannot traverse small caves more than once
-		// so we remove it from the map we pass to our recursive children
-		if (current == promoted) {
-			promoted = "";
-		} else if (is_small_cave(current)) {
-			cavemap.erase(current);
-		}
-
 		// iterate over all neighbors of the current node (breadth first)
-		for (const auto &neighbor : neighbors) {
-			bfs(cavemap, neighbor, promoted, path);
+		for (const auto &neighbor : cavemap.at(current)) {
+			if (is_big_cave(neighbor) || !in_path(neighbor, path)) {
+				bfs(cavemap, neighbor, promoted, path);
+			} else if (neighbor == promoted) {
+				bfs(cavemap, neighbor, "", path);
+			}
 		}
 	};
 	
-
 	for (const auto &[cave, neighbors] : data) {
 		if (is_small_cave(cave) && cave != "start" && cave != "end") {
 			bfs(data, "start", cave, {});
