@@ -31,9 +31,9 @@ point_t popset(unordered_set<point_t> &set) {
 	return item;
 }
 
-bool increase(const point_t &point, size_t time, charmap_t &map) {
+bool increase(const point_t &point, charmap_t &map) {
 	if (map.is_valid(point)) {
-		char value = map.get(point) + (char)time;
+		char value = map.get(point) + (char)1;
 		map.set(point, value);
 		return value > '9';
 	}
@@ -41,16 +41,15 @@ bool increase(const point_t &point, size_t time, charmap_t &map) {
 	return false;
 }
 
-
 /* Iterate map through time steps and return number of flashes */
-size_t flash(charmap_t &map, size_t time) {
+size_t flash(charmap_t &map) {
 	unordered_set<point_t> flashed;	// points that have flashed this time
 	unordered_set<point_t> pending;	// points that need to flash
 
 	// advance all points by time units and collect pending flashes
-	ranges::for_each(map.all_points(), [&map, &pending, time](const auto &p) {
+	ranges::for_each(map.all_points(), [&map, &pending](const auto &p) {
 		auto &[point, value] = p;
-		if (increase(point, time, map)) {
+		if (increase(point, map)) {
 			pending.emplace(point);
 		}
 	});
@@ -67,7 +66,7 @@ size_t flash(charmap_t &map, size_t time) {
 
 		for (auto dir : all_directions) {
 			point_t point = flasher + dir;
-			if (increase(point, time, map) && !flashed.contains(point)) {
+			if (increase(point, map) && !flashed.contains(point)) {
 				pending.emplace(point);
 			}
 		}
@@ -89,7 +88,7 @@ const result_t part1(const data_t &start_map) {
 	size_t flashes = 0;
 	charmap_t map = start_map;
 	for (size_t step = 0; step < 100; step++) {
-		flashes += flash(map, 1);
+		flashes += flash(map);
 	}
 
 	return to_string(flashes);
@@ -101,7 +100,7 @@ const result_t part2(const data_t &start_map) {
 	size_t flashes = 0;
 
 	while (flashes != (map.size_x * map.size_y)) {
-		flashes = flash(map, 1);
+		flashes = flash(map);
 		step++;
 	}
 
