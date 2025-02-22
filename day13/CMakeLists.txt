@@ -14,6 +14,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(${DAY_TARGET} solution.cpp
 	split.h
+	charmap.h charmap.cpp
 	point.h point.cpp)
 
 target_compile_options(${DAY_TARGET} 
