@@ -6,6 +6,7 @@
 #include <string>		// std::string
 #include <vector>
 #include <tuple>
+#include <cstring>      // strtok, strdup
 
 #include <vector>
 #include <string>
@@ -103,7 +104,30 @@ struct point_t {
         lhs += rhs; // reuse compound assignment
         return lhs; // return the result by value (uses move constructor)
 	}
+
+	static point_t from_string(const std::string &str) {
+		auto split_numbers = [](const std::string &str) {
+			const std::string digits{"-0123456789"};
+			std::vector<long> result;
+		
+			size_t start = str.find_first_of(digits, 0);
+			size_t end = str.find_first_not_of(digits, start);
+			while (start != std::string::npos) {
+				result.push_back(std::stol(str.substr(start)));
+	
+				start = str.find_first_of(digits, end);
+				end = str.find_first_not_of(digits, start);	
+			}
+	
+			return result;
+		};
+	
+		return {split_numbers(str)};
+	}
 };
+
+// read points until we hit an empty line
+std::vector<point_t> read_points(std::istream& is, void (*fn)(point_t &point, const std::string &line) = nullptr);
 
 std::ostream& operator<<(std::ostream& os, const point_t &p);
 std::ostream& operator<<(std::ostream& os, const std::vector<point_t> &v);
