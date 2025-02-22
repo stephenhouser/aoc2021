@@ -8,4 +8,4 @@ Polished up the point_t struct and charmap_t struct;
 
 `read_points()` now will take a stream and read points up to the end of file or an empty line. It also has an optional lambda to modify the points before being put into the result vector.
 
-Solution has a `from_points` for charmap to make map from points.
+Solution has a `from_points` for charmap to make map from points. -- added to day0 template

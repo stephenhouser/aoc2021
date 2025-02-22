@@ -49,32 +49,32 @@ map_t fold_points(const map_t &points, const point_t &fold) {
 	return folded;
 }
 
-template <typename T>
-std::pair<point_t, point_t> bounding_box(const T &points) {
-	point_t min_p{*(points.begin())};
-	point_t max_p{*(points.begin())};
-	for (const auto &p : points) {
-		min_p.x = min(min_p.x, p.x);
-		min_p.y = min(min_p.y, p.y);
+// template <typename T>
+// std::pair<point_t, point_t> bounding_box(const T &points) {
+// 	point_t min_p{*(points.begin())};
+// 	point_t max_p{*(points.begin())};
+// 	for (const auto &p : points) {
+// 		min_p.x = min(min_p.x, p.x);
+// 		min_p.y = min(min_p.y, p.y);
 
-		max_p.x = max(max_p.x, p.x+1);
-		max_p.y = max(max_p.y, p.y+1);
-	}
+// 		max_p.x = max(max_p.x, p.x+1);
+// 		max_p.y = max(max_p.y, p.y+1);
+// 	}
 
-	return {min_p, max_p};
-}
+// 	return {min_p, max_p};
+// }
 
-template <typename T>
-charmap_t from_points(const T &points, const char marker = '#', const char filler = '.') {
-	const auto &[min, max] = bounding_box(points);
+// template <typename T>
+// charmap_t from_points(const T &points, const char marker = '#', const char filler = '.') {
+// 	const auto &[min, max] = bounding_box(points);
 
-	charmap_t map((size_t)abs(max.x - min.x), (size_t)abs(max.y - min.y), filler);
+// 	charmap_t map((size_t)abs(max.x - min.x), (size_t)abs(max.y - min.y), filler);
 
-	for (const auto &point : points) {
-		map.set(point, marker);
-	}
-	return map;
-}
+// 	for (const auto &point : points) {
+// 		map.set(point, marker);
+// 	}
+// 	return map;
+// }
 
 /* Part 1 */
 const result_t part1(const data_t &data) {
@@ -93,7 +93,7 @@ const result_t part2(const data_t &data) {
 		folded = fold_points(folded, fold);
 	}
 
-	charmap_t map = from_points(folded);
+	charmap_t map = charmap_t::from_points(folded);
 	cout << map;
 
 	return to_string(0);

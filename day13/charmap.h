@@ -290,10 +290,10 @@ struct charmap_t {
 	}
 #endif
 
-#if defined(POINT_H)
+#if defined(POINT_T_H)
 	template <typename T>
 	static charmap_t from_points(const T &points, const char marker = '#', const char filler = '.') {
-		auto bounding_box = [](const T &points) {
+		auto bounding_box = [](const T &points) -> std::pair<point_t, point_t> {
 			point_t min_p{*(points.begin())};
 			point_t max_p{*(points.begin())};
 			for (const auto &p : points) {
