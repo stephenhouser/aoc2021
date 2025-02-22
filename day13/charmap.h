@@ -290,6 +290,35 @@ struct charmap_t {
 	}
 #endif
 
+#if defined(POINT_H)
+	template <typename T>
+	static charmap_t from_points(const T &points, const char marker = '#', const char filler = '.') {
+		auto bounding_box = [](const T &points) {
+			point_t min_p{*(points.begin())};
+			point_t max_p{*(points.begin())};
+			for (const auto &p : points) {
+				min_p.x = std::min(min_p.x, p.x);
+				min_p.y = std::min(min_p.y, p.y);
+		
+				max_p.x = std::max(max_p.x, p.x+1);
+				max_p.y = std::max(max_p.y, p.y+1);
+			}
+		
+			return {min_p, max_p};
+		};
+		
+		const auto &[min, max] = bounding_box(points);
+
+		charmap_t map((size_t)abs(max.x - min.x), (size_t)abs(max.y - min.y), filler);
+
+		for (const auto &point : points) {
+			map.set(point, marker);
+		}
+		return map;
+	}
+
+#endif
+
 	// friend struct std::formatter<charmap_t>;
 
 	private:
