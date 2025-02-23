@@ -56,9 +56,3 @@ std::vector<point_t> read_points(std::istream& is, void (*fn)(point_t &point, co
 
 	return points;
 }
-
-std::ostream& operator<<(std::ostream& os, const vector_t &p) {
-	std::ostringstream buffer;
-	os << p.p << "," << p.dir;
-	return os;
-}

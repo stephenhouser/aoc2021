@@ -13,25 +13,25 @@ std::ostream& operator<<(std::ostream& os, const charmap_t &map) {
 	std::ostringstream buffer;
 
 	os << "   ";
-	for (size_t x = 0; x < map.size_x; ++x) {
+	for (auto x = 0; x < map.size_x; ++x) {
 		os << x % 10;
 	}
 	os << "\n";
 
 	os << "-+-";
-	for (size_t x = 0; x < map.size_x; ++x) {
+	for (auto x = 0; x < map.size_x; ++x) {
 		os << "-";
 	}
 	os << "-+-\n";
 
 	// size_t ymin = map.show_context < 5 ? 0 : map.show_context-5;
 	// size_t ymax = std::min(map.data.size(), map.show_context+5);
-	size_t ymin = 0;
-	size_t ymax = map.data.size();
-	for (size_t y = ymin; y < ymax; y++) {
+	dimension_t ymin = 0;
+	dimension_t ymax = map.size_y;
+	for (auto y = ymin; y < ymax; y++) {
 		os << y % 10 << "| ";
 
-		auto row = map.data[y];
+		auto row = map.data[static_cast<size_t>(y)];
 		for (auto xit = row.begin(); xit != row.end(); ++xit) {
 			if (strchr(highlight_chars, *xit) == NULL) {
 				os << *xit;
@@ -43,14 +43,16 @@ std::ostream& operator<<(std::ostream& os, const charmap_t &map) {
 	}
 
 	os << "-+-";
-	for (size_t x = 0; x < (size_t)map.size_x; ++x) {
+	for (auto x = 0; x < map.size_x; ++x) {
 		os << "-";
 	}
 	os << "-+-\n   ";
-	for (size_t x = 0; x < (size_t)map.size_x; ++x) {
+	for (auto x = 0; x < map.size_x; ++x) {
 		os << x % 10;
 	}
 	os << "\n";
 
 	return os;
 }
+
+
