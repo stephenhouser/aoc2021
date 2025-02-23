@@ -28,12 +28,12 @@ class compare_cost {
 };
 
 // The cost to go from current to neighbor
-static index_t default_cost(const index_t cost, 
+static size_t default_cost(const size_t cost, 
 				[[maybe_unused]] const vector_t &current, 
 				[[maybe_unused]] const vector_t &neighbor, 
 				[[maybe_unused]] const charmap_t &map) {
 	// return = current.p.z + 1; // ((direction == u.dir) ? 1 : 1001);
-	return cost + (map.get(neighbor.p) - (index_t)'0');
+	return cost + ((size_t)map.get(neighbor.p) - (size_t)'0');
 }
 
 // Have we reached the end?
@@ -46,7 +46,8 @@ std::tuple<size_t, dist_t, pred_t>
 dijkstra(const charmap_t &map,
 		 const vector_t &start,
 		 const point_t &end,
-		 index_t (*cost_fn)(const index_t cost, const vector_t &current, const vector_t &neighbor, const charmap_t &map)) {
+		 size_t (*cost_fn)(const size_t cost, const vector_t &current, 
+							const vector_t &neighbor, const charmap_t &map)) {
 	dist_t dist;
 	pred_t pred;
 	std::priority_queue<vector_t, std::vector<vector_t>, compare_cost> Q;
@@ -64,7 +65,7 @@ dijkstra(const charmap_t &map,
 		// remove u from Q
 		Q.pop();
 
-		auto cost = u.p.z;
+		size_t cost = static_cast<size_t>(u.p.z);
 		u.p.z = 0; // clear so we can insert into map properly
 
 		// test if this node is the/an end node
@@ -76,7 +77,7 @@ dijkstra(const charmap_t &map,
 		for (auto direction : directions) {
 			vector_t v(u.p+direction, direction);
 
-			index_t neighbor_cost = cost_fn(cost, u, v, map);
+			size_t neighbor_cost = cost_fn(cost, u, v, map);
 
 			// is neighbor(v) a valid move?
 			if (map.is_valid(v.p)) {
@@ -87,7 +88,7 @@ dijkstra(const charmap_t &map,
 					pred[v].clear();
 					pred[v].emplace_back(u);
 
-					v.p.z = neighbor_cost;
+					v.p.z = static_cast<dimension_t>(neighbor_cost);
 					Q.push(v);
 
 				} else if (neighbor_cost == dist[v]) {
@@ -101,18 +102,18 @@ dijkstra(const charmap_t &map,
 }
 
 /* Return the distance of point p from the start using the precomputed dist[]. */
-index_t dijkstra_distance(const charmap_t &map, const dist_t &dist, const point_t &p) {
+size_t dijkstra_distance(const charmap_t &map, const dist_t &dist, const point_t &p) {
 	if (map.is_char(p.x, p.y, 'S')) {
 		return 0;
 	}
 
-	index_t distance = INT_MAX;
+	size_t distance = INT_MAX;
 	for (auto dir : directions) {
 		vector_t v{p.x, p.y, dir.x, dir.y};
 
 		auto dit = dist.find(v);
 		if (dit != dist.end()) {
-			index_t d = dit->second;
+			size_t d = dit->second;
 			if (d && d < distance) {
 				distance = d;
 			}
@@ -158,13 +159,13 @@ void show_dijkstra_distances(const charmap_t &map, const dist_t &dist) {
 	int x_width = 4;
 
 	std::cout << "   ";
-	for (size_t x = 0; x < map.size_x; ++x) {
+	for (dimension_t x = 0; x < map.size_x; ++x) {
 		std::cout << std::setw(x_width) << x;
 	}
 	std::cout << "\n";
 
 	std::cout << "-+-";
-	for (size_t x = 0; x < map.size_x; ++x) {
+	for (dimension_t x = 0; x < map.size_x; ++x) {
 		std::cout << "---";
 	}
 	std::cout << "-+-\n";
@@ -176,7 +177,7 @@ void show_dijkstra_distances(const charmap_t &map, const dist_t &dist) {
 
 		size_t x = 0;
 		for (auto xit = (*yit).begin(); xit != (*yit).end(); ++xit) {
-			index_t distance = dijkstra_distance(map, dist, {x, y});
+			size_t distance = dijkstra_distance(map, dist, {x, y});
 			if (distance < INT_MAX) {
 				std::cout << std::setw(x_width) << dijkstra_distance(map, dist, {x, y});
 			} else {
@@ -190,11 +191,11 @@ void show_dijkstra_distances(const charmap_t &map, const dist_t &dist) {
 	}
 
 	std::cout << "-+-";
-	for (size_t x = 0; x < (size_t)map.size_x; ++x) {
+	for (dimension_t x = 0; x < map.size_x; ++x) {
 		std::cout << "---";
 	}
 	std::cout << "-+-\n   ";
-	for (size_t x = 0; x < (size_t)map.size_x; ++x) {
+	for (dimension_t x = 0; x < map.size_x; ++x) {
 		std::cout << std::setw(x_width) << x;
 	}
 	std::cout << "\n";

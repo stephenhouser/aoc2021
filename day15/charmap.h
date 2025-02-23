@@ -9,52 +9,27 @@
 #include <fstream>
 #include <iterator>
 
-#if !defined(POINT_T_H)
-template<typename T>
-concept Numeric = std::integral<T> or std::floating_point<T>;
-#endif
+#include "point.h"
 
 struct charmap_t {
-	size_t size_x = 0;
-	size_t size_y = 0;
+	dimension_t size_x = 0;
+	dimension_t size_y = 0;
 	// size_t show_context = 0;
 	std::vector<std::vector<char>> data = {};
 
 	charmap_t() {
 	}
 
-	static charmap_t from_file(const std::string &file_name) {
-		std::ifstream ifs(file_name);
-		charmap_t map(ifs);
-		return map;
-	}
-
-	charmap_t(std::ifstream &infile) {
-		std::string line;
-		for (std::string line; std::getline(infile, line); ) {
-			this->data.push_back({line.begin(), line.end()});
-		}
-
-		this->update_size();
-	}
-
 	// empty of size_x x size_y
-	charmap_t(size_t size_x, size_t size_y, char fill = '\0') {
-		for (size_t y = 0; y < size_y; y++) {
+	template <std::convertible_to<dimension_t> Tx, std::convertible_to<dimension_t> Ty>
+	charmap_t(Tx size_x, Ty size_y, char fill = '\0') {
+		for (Ty y = 0; y < size_y; y++) {
 			std::vector<char> row;
-			for (size_t x = 0; x < size_x; x++) {
+			for (Tx x = 0; x < size_x; x++) {
 				row.push_back(fill);
 			}
 
 			data.push_back(row);
-		}
-
-		this->update_size();
-	}
-
-	charmap_t(const std::vector<std::string> &lines) {
-		for (const auto& line : lines) {
-			this->data.push_back({line.begin(), line.end()});
 		}
 
 		this->update_size();
@@ -71,129 +46,87 @@ struct charmap_t {
 	}
 
 	void add_line(const char ch = '.') {
-		std::vector<char> charline(this->size_x, ch);
+		std::vector<char> charline(static_cast<size_t>(this->size_x), ch);
 		this->data.push_back(charline);
 		this->update_size();
 	}
 
-	void fill_lines(const char filler_ch = ' ') {
+	void fill_ragged(const char filler_ch = ' ') {
 		// if the map has ragged x edges (on the right)
 		// fill them in with empty space to make the map rectangle
 
-		// find max_x, updates size_x
+		// find max_x; max width row
+		size_t max_x = 0;
 		for (const auto &row : this->data) {
-			if (row.size() > this->size_x) {
-				this->size_x = row.size();
-			}
+			max_x = std::max(max_x, row.size());
 		}
 
 		// fill with filler_ch
 		for (auto &row : this->data) {
-			while (row.size() < this->size_x) {
+			while (row.size() < max_x) {
 				row.push_back(filler_ch);
 			}
 		}
+
+		// update the xsize_x of the map
+		this->size_x = static_cast<dimension_t>(max_x);
+	}
+	
+	template <std::convertible_to<dimension_t> Tx, std::convertible_to<dimension_t> Ty>
+	bool is_valid(const Tx x, const Ty y) const {
+		dimension_t native_x = static_cast<dimension_t>(x);
+		dimension_t native_y = static_cast<dimension_t>(y);
+		return 0 <= native_x && native_x < this->size_x 
+			&& 0 <= native_y && native_y < this->size_y;
 	}
 
-	// void rotate_right() {
-	// 	vector<vector<char>> rotated = {};
-	// 	for (size_t x = 0; x < this->size_x; x++) {
-	// 		vector<char> row;
-	// 		for (size_t y = 0; y < this->size_y; y++) {
-	// 			row.push_back(this->data[y][x]);
-	// 		}
-	// 		rotated.push_back(row);
-	// 	}
-	// 	data = move(rotated);
-	// 	this->update_size();
-	// }
-
-	bool is_valid(const long x, const long y) const {
-		return 0 <= x && x < static_cast<int>(this->size_x)
-			&& 0 <= y && y < static_cast<int>(this->size_y);
-	}
-
-	bool is_valid(const int x, const int y) const {
-		return 0 <= x && x < static_cast<int>(this->size_x)
-			&& 0 <= y && y < static_cast<int>(this->size_y);
-	}
-
-	bool is_valid(const size_t x, const size_t y) const {
-		return x < static_cast<size_t>(this->size_x)
-			&& y < static_cast<size_t>(this->size_y);
-	}
-
-#if defined(POINT_T_H)
 	bool is_valid(const point_t &p) const {
-		return 0 <= p.x && p.x < static_cast<int>(this->size_x)
-			&& 0 <= p.y && p.y < static_cast<int>(this->size_y);
+		return is_valid(p.x, p.y);
 	}
-#endif
 
-	template <Numeric Tx, Numeric Ty>
+	template <std::convertible_to<dimension_t> Tx, std::convertible_to<dimension_t> Ty>
 	char get(const Tx x, const Ty y, const char invalid = '\0') const {
-		return this->is_valid(x, y) ? data[static_cast<size_t>(y)][static_cast<size_t>(x)] : invalid;
+		size_t size_x = static_cast<size_t>(x);
+		size_t size_y = static_cast<size_t>(y);
+		return this->is_valid(x, y) ? data[size_y][size_x] : invalid;
 	}
 
-	// char get(const size_t x, size_t y, const char invalid = '\0') const {
-	// 	return this->is_valid(x, y) ? data[y][x] : invalid;
-	// }
-
-#if defined(POINT_T_H)
 	char get(const point_t &p, const char invalid = '\0') const {
-		return this->is_valid(p) ? data[static_cast<size_t>(p.y)][static_cast<size_t>(p.x)] : invalid;
+		return this->get(p.x, p.y, invalid);
 	}
-#endif
 
-	template <Numeric Tx, Numeric Ty>
+	template <std::convertible_to<dimension_t> Tx, std::convertible_to<dimension_t> Ty>
 	void set(const Tx x, const Ty y, const char c) {
 		if (this->is_valid(x, y)) {
-			this->data[static_cast<size_t>(y)][static_cast<size_t>(x)] = c;
+			size_t size_x = static_cast<size_t>(x);
+			size_t size_y = static_cast<size_t>(y);
+			this->data[size_y][size_x] = c;
 		}
 	}
 
-	// void set(const size_t x, const size_t y, const char c) {
-	// 	if (this->is_valid(x, y)) {
-	// 		this->data[y][x] = c;
-	// 	}
-	// }
-
-#if defined(POINT_T_H)
 	void set(const point_t &p, const char c) {
 		if (this->is_valid(p)) {
-			this->data[static_cast<size_t>(p.y)][static_cast<size_t>(p.x)] = c;
+			this->set(p.x, p.y, c);
 		}
 	}
-#endif
-	template <Numeric Tx, Numeric Ty>
+
+	template <std::convertible_to<dimension_t> Tx, std::convertible_to<dimension_t> Ty>
 	bool is_char(const Tx x, const Ty y, const char c) const {
-		return is_valid(x, y) && data[static_cast<size_t>(y)][static_cast<size_t>(x)] == c;
+		return this->get(x, y) == c;
 	}
 
-	// bool is_char(const size_t x, const size_t y, const char c) const {
-	// 	return is_valid(x, y) && data[y][x] == c;
-	// }
-
-#if defined(POINT_T_H)
 	bool is_char(const point_t &p, const char c) const {
-		return is_valid(p) && data[static_cast<size_t>(p.y)][static_cast<size_t>(p.x)] == c;
+		return this->get(p) == c;
 	}
-#endif
 
-	template <Numeric Tx, Numeric Ty>
+	template <std::convertible_to<dimension_t> Tx, std::convertible_to<dimension_t> Ty>
 	bool is_not_char(const Tx x, const Ty y, const char c) const {
-		return is_valid(x, y) && !is_char(x, y, c);
+		return !this->is_char(x, y, c);
 	}
 
-	// bool is_not_char(const size_t x, const size_t y, char c) const {
-	// 	return is_valid(x, y) && !is_char(x, y, c);
-	// }
-
-#if defined(POINT_T_H)
 	bool is_not_char(const point_t &p, char c) const {
-		return is_valid(p) && !is_char(p, c);
+		return !this->is_char(p, c);
 	}
-#endif
 
 	// std::views iterator for all x,y with character
 	auto all_xy() const {
@@ -207,7 +140,6 @@ struct charmap_t {
 			   std::views::join;
     }
 
-#if defined(POINT_T_H)
 	std::vector<point_t> _directions{{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
 	auto neighbors_of(const point_t &p) const {
 		return _directions |
@@ -236,14 +168,14 @@ struct charmap_t {
 	 */
 	class iterator {
 		private:
-			size_t i;
+			dimension_t i;
 			const charmap_t &map;
 
 		public:
-			iterator(size_t start, const charmap_t &m) : i(start), map(m) {}
+			iterator(dimension_t start, const charmap_t &m) : i(start), map(m) {}
 			std::pair<point_t, char> operator*() { 
-				size_t x = i % map.size_x;
-				size_t y = i / map.size_x;
+				dimension_t x = i % map.size_x;
+				dimension_t y = i / map.size_x;
 				return {{x, y}, map.get(x, y)};
 			}
 			iterator &operator++() { ++i; return *this; }
@@ -252,13 +184,11 @@ struct charmap_t {
 
 	iterator begin() const { return iterator(0, *this); }
     iterator end() const { return iterator(this->size_x * this->size_y, *this); }
-#endif
 
-#if defined(POINT_T_H)
 	point_t find_char(const char c = '^') const {
-		for (size_t y = 0; y < this->size_y; y++) {
-			for (size_t x = 0; x < this->size_x; x++) {
-				if (is_char(x, y, c)) {
+		for (dimension_t y = 0; y < this->size_y; y++) {
+			for (dimension_t x = 0; x < this->size_x; x++) {
+				if (this->is_char(x, y, c)) {
 					return {x, y};
 				}
 			}
@@ -266,21 +196,36 @@ struct charmap_t {
 
 		return {0, 0};
 	}
-#else
-	std::pair<size_t, size_t> find_char(const char c = '^') const {
-		for (size_t y = 0; y < this->size_y; y++) {
-			for (size_t x = 0; x < this->size_x; x++) {
-				if (is_char(x, y, c)) {
-					return {x, y};
-				}
-			}
+
+	static charmap_t from_vector(const std::vector<std::string> &lines) {
+		charmap_t map;
+
+		for (const auto& line : lines) {
+			map.data.push_back({line.begin(), line.end()});
 		}
 
-		return {0, 0};
+		map.update_size();
+		return map;
 	}
-#endif
 
-#if defined(POINT_T_H)
+	static charmap_t from_stream(std::ifstream &infile) {
+		charmap_t map;
+
+		std::string line;
+		for (std::string line; std::getline(infile, line); ) {
+			map.data.push_back({line.begin(), line.end()});
+		}
+
+		map.update_size();
+		return map;
+	}
+
+	static charmap_t from_file(const std::string &file_name) {
+		std::ifstream ifs(file_name);
+		return charmap_t::from_stream(ifs);
+	}
+
+	// TODO: How to limit this type to iterable types; vector, set, etc.
 	template <typename T>
 	static charmap_t from_points(const T &points, const char marker = '#', const char filler = '.') {
 		auto bounding_box = [](const T &points) -> std::pair<point_t, point_t> {
@@ -304,17 +249,17 @@ struct charmap_t {
 		for (const auto &point : points) {
 			map.set(point, marker);
 		}
+		
 		return map;
 	}
-#endif
 
-	// friend struct std::formatter<charmap_t>;
+	friend struct std::formatter<charmap_t>;
 
 	private:
 		void update_size() {
-			this->size_y = this->data.size();
+			this->size_y = static_cast<dimension_t>(this->data.size());
 			if (this->size_y) {
-				this->size_x = this->data[0].size();
+				this->size_x = static_cast<dimension_t>(this->data[0].size());
 			}
 		}
 };
