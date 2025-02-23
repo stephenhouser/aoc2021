@@ -34,8 +34,38 @@ const result_t part1(const data_t &map) {
 	return to_string(cost);
 }
 
-const result_t part2([[maybe_unused]] const data_t &map) {
-	return to_string(0);
+/* Return the source map multipled out dx and dy with new locations 
+ * set to source value + distance. Set values from 1-9 and rotate back through.
+ */
+charmap_t multiply(const charmap_t &map, size_t dx, size_t dy) {
+	charmap_t bigmap((size_t)map.size_x * dx, (size_t)map.size_y * dy);
+
+	for (const auto &p : bigmap.all_points()) {
+		// offset in tile, position in source
+		auto src_x = p.x % map.size_x;
+		auto src_y = p.y % map.size_y;
+		// manhatten distance from source map
+		auto distance = p.x / map.size_x + p.y / map.size_y;
+
+		// new value is source value + distance, mod with 9
+		auto value = map.get(src_x, src_y) + distance;
+		value = (value > '9') ? value-9 : value;
+
+		// set value in big map
+		bigmap.set(p, value);
+	}
+
+	return bigmap;
+}
+
+const result_t part2(const data_t &map) {
+	const auto bigmap = multiply(map, 5, 5);
+
+	const vector_t start({0, 0}, {0, 0});
+	const point_t end(bigmap.size_x-1, bigmap.size_y-1);
+
+	auto [cost, dist, pred] = dijkstra(bigmap, start, end);
+	return to_string(cost);
 }
 
 const data_t read_data(const string &filename) {

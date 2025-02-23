@@ -14,6 +14,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(${DAY_TARGET} solution.cpp
 	point.h point.cpp
+	vector.h vector.cpp
 	charmap.h charmap.cpp
 	dijkstra.h dijkstra.cpp)
 

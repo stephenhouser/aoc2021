@@ -95,16 +95,18 @@ struct charmap_t {
 		return this->get(p.x, p.y, invalid);
 	}
 
-	template <std::convertible_to<dimension_t> Tx, std::convertible_to<dimension_t> Ty>
-	void set(const Tx x, const Ty y, const char c) {
+	template <std::convertible_to<dimension_t> Tx, std::convertible_to<dimension_t> Ty, 
+				std::convertible_to<char> Tc>
+	void set(const Tx x, const Ty y, const Tc c) {
 		if (this->is_valid(x, y)) {
 			size_t size_x = static_cast<size_t>(x);
 			size_t size_y = static_cast<size_t>(y);
-			this->data[size_y][size_x] = c;
+			this->data[size_y][size_x] = static_cast<char>(c);
 		}
 	}
 
-	void set(const point_t &p, const char c) {
+	template <std::convertible_to<char> Tc>
+	void set(const point_t &p, const Tc c) {
 		if (this->is_valid(p)) {
 			this->set(p.x, p.y, c);
 		}
@@ -157,7 +159,10 @@ struct charmap_t {
                std::views::transform([this](size_t y) {
                    return std::views::iota(0u, this->data[y].size()) |
                           std::views::transform([this, y](size_t x) {
-                              return std::pair<point_t, char>({x, y}, this->data[y][x]);
+								point_t p(x, y);
+								p.u = this->data[y][x];
+								return p;
+                              //return std::pair<point_t, char>({x, y}, this->data[y][x]);
                           });
                }) | 
 			   std::views::join;
@@ -249,7 +254,7 @@ struct charmap_t {
 		for (const auto &point : points) {
 			map.set(point, marker);
 		}
-		
+
 		return map;
 	}
 
