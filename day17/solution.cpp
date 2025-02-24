@@ -26,35 +26,31 @@ using result_t = string;
 const data_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
 
-
 /*
 target area: x=20..30, y=-10..-5
-
-n(n+1) / 2 = sum
-n = (-1+sqrt(1+8s)) / 2
-
-	s=20 -> n = 6
-	s=30 -> n = 7
-
 
 7,2 hits
 6,3 hits
 9,0 hits
 17, -4 misses
-
-
 */
 
+/* Return true if x,y is in the target area.
+ * The box boundaries are considered within the target area.
+ */
 bool contains(const int x, const int y, const box_t &box) {
 	return box.first.x <= x && x <= box.second.x
 		&& box.first.y <= y && y <= box.second.y;
 }
 
-/* does start dx, dy hit target area */
+/* Return the highest y coordinate reached when launching from 0,0 with
+ * velocity x,y or INT_MIN if it did not hit the target area. */
 int simulate(int dx, int dy, const box_t &target) {
 	int x = 0;
 	int y = 0;
 
+	// This is a quirky finite-time-step process. This just brute-forces
+	// by incrementing time and testing if we have hit or gone beyond the target.
 	int max_y = INT_MIN;
 	while (x <= target.second.x && y >= target.first.y) {
 		x += max(0, dx--);
@@ -62,64 +58,81 @@ int simulate(int dx, int dy, const box_t &target) {
 
 		max_y = max(y, max_y);
 		if (contains(x, y, target)) {
+			// cout << "OK: " << x << "," << y << " max=" << max_y << endl;
 			return max_y;
 		}
 	}
 
-	return 0;
+	return INT_MIN;
+}
+
+/* Return set of x-velocity values that could possibly hit the target area.
+ * Assume x starts at 0 and is never negative.
+ * Assume x-velocity will always be positive
+ * The box boundaries are considered within the target area.
+ */
+unordered_set<int> dx_hits(const box_t &target) {
+	unordered_set<int> dx_vals;
+
+	// Test all possible dx values from (0, target.max.x) as anything larger
+	// would never hit the target, and x is always > 0
+	for (int dx = 0; dx <= target.second.x; dx++) {
+		// xv is x velocity that decrements by one (drag) each time step
+		// mini-simulate iterating moving x by xv and then decrementing xv.
+		// if x ends up in the target area, then save dx as a possible solution.
+		int x = 0;
+		for (int xv = dx; xv >= 0; xv--) {
+			x += xv;
+			if (target.first.x <= x && x <= target.second.x) {
+				dx_vals.emplace(dx);
+				break;
+			}
+		}
+	}
+
+	return dx_vals;
+}
+
+/* Return set of y-velocity values that could possibly hit the target area.
+ * Assume y starts at 0.
+ * The box boundaries are considered within the target area.
+ */
+unordered_set<int> dy_hits(const box_t &target) {
+	unordered_set<int> dy_vals;
+
+	// Test all possible dy values from (+target.first.y, -target.first.y)
+	// These are the outer limits of what could possibly land in the target area
+	for (int dy = (int)abs(target.first.y); dy >= target.first.y; dy--) {
+		// yv is y velocity that decrements by one (gravity) each time step
+		// mini-simulate iterating moving y by yv and then decrementing yv.
+		// if y ends up in the target area, then save dy as a possible solution.
+		int y = 0;
+		for (int yv = dy; yv >= target.first.y; yv--) {
+			y += yv;
+			if (target.first.y <= y && y <= target.second.y) {
+				dy_vals.emplace(dy);
+			}
+		}
+	}
+
+	return dy_vals;
 }
 
 /* Part 1 */
 const result_t part1(const data_t &targets) {
 	int result = INT_MIN;
 
+	// there is only one target in the sample and input
 	for (const auto &target : targets) {
-		cout << target.first << ", " << target.second << endl;
+		// get possible dx and dy values that will hit the target
+		auto dx_vals = dx_hits(target);
+		auto dy_vals = dy_hits(target);
 
-		unordered_set<int> dx_vals;
-		unordered_set<int> dy_vals;
-
-		int min_dx = 100;
-		int max_dx = -100;
-		for (int dx = 0; dx < target.second.x; dx++) {
-			int tx = 0;
-			for (int x = dx; x >= 0; x--) {
-				tx += x;
-				if (target.first.x <= tx && tx <= target.second.x) {
-					min_dx = min(min_dx, dx);
-					max_dx = max(max_dx, dx);
-					dx_vals.emplace(dx);
-					// cout << "x hits at " << tx << " with dx=" << dx << endl; 
-				}
-			}
-		}
-
-		// cout << "dx " << min_dx << "," << max_dx << endl;
-
-		int min_dy = 100;
-		int max_dy = -100;
-		for (int dy = (int)abs(target.first.y); dy > target.first.y; dy--) {
-			int ty = 0;
-			for (int y = dy; y >= target.first.y; y--) {
-				ty += y;
-				if (target.first.y <= ty && ty <= target.second.y) {
-					min_dy = min(min_dy, dy);
-					max_dy = max(max_dy, dy);
-					dy_vals.emplace(dy);
-					// cout << "y hits at " << ty << " with dy=" << dy << endl; 
-				}
-			}
-		}
-
-		// cout << "dy " << min_dy << "," << max_dy << endl;
-
-		// auto max_y = simulate(6, 3, target);
-		// cout << 6 << "," << 3 << " -> " << max_y << endl;
+		// try all combinations, keep the max y value from all of them
 		for (const int dx : dx_vals) {
 			for (const int dy : dy_vals) {
 				auto y = simulate(dx, dy, target);
 				result = max(y, result);
-				cout << dx << "," << dy << " -> " << y << endl;
 			}
 		}
 
@@ -128,8 +141,27 @@ const result_t part1(const data_t &targets) {
 	return to_string(result);
 }
 
+// 20,-10
 const result_t part2([[maybe_unused]] const data_t &targets) {
-	return to_string(0);
+	vector<point_t> success;
+
+	// there is only one target in the sample and input
+	for (const auto &target : targets) {
+		// get possible dx and dy values that will hit the target
+		auto dx_vals = dx_hits(target);
+		auto dy_vals = dy_hits(target);
+
+		// add all solutions to succsess vector
+		for (const int dx : dx_vals) {
+			for (const int dy : dy_vals) {
+				if (simulate(dx, dy, target) != INT_MIN) {
+					success.push_back({dx, dy});
+				}
+			}
+		}
+	}
+
+	return to_string(success.size());
 }
 
 const data_t read_data(const string &filename) {
