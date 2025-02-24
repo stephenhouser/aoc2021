@@ -12,7 +12,8 @@ project(${DAY_TARGET})
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(${DAY_TARGET} solution.cpp)
+add_executable(${DAY_TARGET} solution.cpp
+	bitstream.h)
 
 target_compile_options(${DAY_TARGET} 
 	PRIVATE -O3 -Wall -Wextra -Wpedantic -Weffc++ -Wconversion -Wsign-conversion -Werror
