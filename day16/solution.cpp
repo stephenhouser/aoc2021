@@ -11,6 +11,9 @@
 #include <algorithm>	// sort
 #include <numeric>		// max, reduce, etc.
 #include <functional>
+#include <climits>
+
+#include "bitstream.h"
 
 using namespace std;
 
@@ -19,63 +22,6 @@ using result_t = string;
 
 const data_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
-
-uint8_t decode_hex(const char hex) {
-	if ('0' <= hex && hex <= '9') {
-		return (uint8_t)(hex - '0');
-	} else if ('A' <= hex && hex <= 'F') {
-		return (uint8_t)((hex - 'A') + 10);
-	}
-
-	cerr << "ERROR: Decoding hex " << hex << " is out of range" << endl;
-	return 0;
-}
-
-vector<uint8_t> decode_hex(const string &str) {
-	vector<uint8_t> bytes;
-
-	for (size_t i = 0; i < str.size(); i += 2) {
-		uint8_t high = decode_hex(str[i]);
-		uint8_t low = (i+1 < str.size()) ? decode_hex(str[i+1]) : 0x00;
-		bytes.push_back(high << 4 | low);
-	}
-
-	return bytes;
-}
-
-class bitstream_t {
-	private:
-		vector<uint8_t> buffer;
-		size_t pos;
-
-	public:
-		bitstream_t(const string &hex) : buffer(decode_hex(hex)), pos(0) {
-		}
-
-		size_t tell() const {
-			return pos;
-		}
-
-		size_t read(const size_t bits) {
-			auto s_byte = pos / 8;	// which byte do we start in
-			auto s_bit  = pos % 8;	// which bit in that byte
-			auto e_byte = (pos+bits) / 8;
-			auto e_bit  = (pos+bits) % 8;
-
-			pos += bits;
-
-			size_t full = 0x00;
-			for (size_t b = s_byte; b <= e_byte; b++) {
-				full = (full << 8) | buffer[b];
-				s_bit += 8;
-			}
-
-			size_t mask = ~(~0u << bits);
-			size_t result = full >> (8 - e_bit);		
-			// cout << "mask=" << hex << mask << " res=" << result << " e_b=" << e_bit << endl; 
-			return result & mask;
-		}
-};
 
 struct packet_t {
 	size_t version = 0x00;
@@ -88,6 +34,9 @@ packet_t decode(bitstream_t &bits);
 size_t decode_literal(bitstream_t &bits);
 vector<packet_t> decode_subpackets(bitstream_t &bits);
 
+size_t eval(const packet_t &packet);
+
+
 void show(const packet_t &packet, const int level = 0) {
 	for (int i = 0; i < level; i++) {
 		cout << "\t";
@@ -95,14 +44,21 @@ void show(const packet_t &packet, const int level = 0) {
 
 	cout << "version=" << packet.version << " id=" << packet.id;
 	switch (packet.id) {
-		case 4:
-			cout << " literal=" << packet.value << endl;
-			break;
-		default:
-			cout << endl;
-			for (const auto &p : packet.sub) {
-				show(p, level+1);
-			}
+		case 0: cout << " sum="; break;
+		case 1: cout << " product="; break;
+		case 2: cout << " minimum="; break;
+		case 3: cout << " maximum="; break;
+		case 4: cout << " literal="; break;
+		case 5: cout << " greater="; break;
+		case 6: cout << " less="; break;
+		case 7: cout << " equal="; break;
+	}
+	cout << eval(packet) << endl;
+
+	if (packet.id != 4) {
+		for (const auto &p : packet.sub) {
+			show(p, level+1);
+		}
 	}
 }
 
@@ -126,19 +82,19 @@ packet_t decode(bitstream_t &bits) {
 size_t decode_literal(bitstream_t &bits) {
 	size_t literal = 0x00;
 
+	size_t nybbles = 1;
 	while (bits.read(1)) {
 		literal = (literal << 4) | bits.read(4);
+		nybbles++;
 	}
 	literal = (literal << 4) | bits.read(4);
-
 	return literal;
 }
 
 vector<packet_t> decode_subpackets(bitstream_t &bits) {
 	vector<packet_t> packets;
 
-	// length type ID
-	if (bits.read(1)) {
+	if (bits.read(1)) {	// length type ID
 		size_t packet_count = bits.read(11);
 		while (packet_count--) {
 			packets.push_back(decode(bits));
@@ -154,22 +110,56 @@ vector<packet_t> decode_subpackets(bitstream_t &bits) {
 	return packets;
 }
 
+size_t eval(const packet_t &packet) {
+	size_t result = 0;
+	auto subs = packet.sub;
 
-// void traverse(const packet_t &packet, const std::function<void(const packet_t &)>& callback) {
-// 	switch (packet.id) {
-// 		case 4:
-// 			callback(packet);
-// 			break;
-// 		default:
-// 			for (const auto &sub : packet.sub) {
-// 				traverse(sub, callback);
-// 			}
-// 	}
-// }
+	switch (packet.id) {
+		case 0:	// sum packets
+			result = accumulate(subs.begin(), subs.end(), (size_t)0, [](size_t result, const packet_t &packet) {
+				return result + eval(packet);
+			});
+			break;
+		case 1:	// product packets
+			result = accumulate(subs.begin(), subs.end(), (size_t)1, [](size_t result, const packet_t &packet) {
+				return result * eval(packet);
+			});
+			break;
+		case 2:	// min of packets
+			result = accumulate(subs.begin(), subs.end(), (size_t)SIZE_MAX, [](size_t result, const packet_t &packet) {
+				return min(result, eval(packet));
+			});
+			break;
+		case 3:	// max packets
+			result = accumulate(subs.begin(), subs.end(), (size_t)0, [](size_t result, const packet_t &packet) {
+				return max(result, eval(packet));
+			});
+			break;
+		case 4:	// literal
+			result = packet.value;
+			break;
+		case 5:	// grater than 1 if a > b, otherwise 0
+			assert(subs.size() == 2);
+			result = (eval(subs[0]) > eval(subs[1])) ? 1 : 0;
+			break;
+		case 6:	// less than 1 if a < b, otherwise 0
+			assert(subs.size() == 2);
+			result = (eval(subs[0]) < eval(subs[1])) ? 1 : 0;
+			break;
+		case 7:	// equal; 1 if a == b, otherwise 0
+			assert(subs.size() == 2);
+			result = (eval(subs[0]) == eval(subs[1])) ? 1 : 0;
+			break;
+		default:
+			cerr << "ERROR: Unknown packet id=" << packet.id << endl;
+			break;
+	}
+
+	return result;
+}
 
 /* Part 1 */
 const result_t part1(const data_t &data) {
-
 	std::function<size_t (const packet_t &)> version_sum;
 	version_sum = [&version_sum](const packet_t &packet) {
 		size_t result = packet.version;
@@ -186,14 +176,28 @@ const result_t part1(const data_t &data) {
 		bitstream_t bits(packet_str);
 		packet_t packet = decode(bits);
 		
-		result += version_sum(packet);
+		auto local = version_sum(packet);
+		// cout << local << "\t" << packet_str << endl;
+		result += local;
 	}
 
 	return to_string(result);
 }
 
-const result_t part2([[maybe_unused]] const data_t &data) {
-	return to_string(0);
+//     161309575 too low --> truncated results
+// 1675198555015 --> use size_t cast in accumulate!
+const result_t part2(const data_t &data) {
+	size_t result = 0;
+	for (const auto &packet_str : data) {
+		bitstream_t bits(packet_str);
+		packet_t packet = decode(bits);
+
+		auto local = eval(packet);
+		// cout << local << "\t" << packet_str << endl;
+		result += local;
+	}
+
+	return to_string(result);
 }
 
 const data_t read_data(const string &filename) {
