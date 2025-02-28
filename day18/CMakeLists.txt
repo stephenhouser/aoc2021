@@ -14,8 +14,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(${DAY_TARGET} solution.cpp)
 
+#  
 target_compile_options(${DAY_TARGET} 
-	PRIVATE -O3 -Wall -Wextra -Wpedantic -Weffc++ -Wconversion -Wsign-conversion -Werror
+	PRIVATE -O3 -Wall -Wextra -Weffc++ -Wpedantic -Wconversion -Wsign-conversion -Werror
 	)
 
 #enable_testing()
