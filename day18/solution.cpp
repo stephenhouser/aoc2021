@@ -76,6 +76,26 @@ using result_t = string;
 const data_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
 
+
+node_t *copy(node_t *node) {
+	value_t *value = dynamic_cast<value_t *>(node);
+	if (value != nullptr) {
+		value_t *n = new value_t(value->value);
+		n->parent = nullptr;
+		return n;
+	}
+
+	pair_t *pair = dynamic_cast<pair_t *>(node);
+
+	pair_t *n = new pair_t();
+	n->parent = nullptr;
+	n->left = copy(pair->left);
+	n->left->parent = n;
+	n->right = copy(pair->right);
+	n->right->parent = n;
+	return n;
+}
+
 void in_order(node_t *node, vector<value_t *> &nodes) {
 	value_t *value = dynamic_cast<value_t *>(node);
 	if (value != nullptr) {
@@ -287,24 +307,12 @@ size_t eval(node_t *node) {
 }
 
 
-
 /* Part 1 */
 const result_t part1(const data_t &data) {
-	node_t *root = data[0];
-	// print("  ");
-	// root->show();
-	// print("\n");
+	node_t *root = copy(data[0]);
 
 	for (size_t i = 1; i < data.size(); i++) {
-		// print("+ ");
-		node_t *node = data[i];
-		// node->show();
-		// print("\n");
-
-		root = add_nodes(root, node);
-		// print("= ");
-		// root->show();
-		// print("\n\n");
+		root = add_nodes(root, copy(data[i]));
 	}
 
 	size_t result = eval(root);
@@ -315,17 +323,13 @@ const result_t part2(const data_t &data) {
 	size_t result = 0;
 
 	for (size_t i = 0; i < data.size(); i++) {
-		data[i]->show();
-		print("\n");
 		for (size_t j = i; j < data.size(); j++) {
-			print("\t");
-			data[j]->show();
-			print("\n");
-
-			auto root = add_nodes(data[i], data[j]);
+			auto root = add_nodes(copy(data[i]), copy(data[j]));
 			auto local = eval(root);
+			result = max(result, local);
 
-			print("==> {}\n", local);
+			root = add_nodes(copy(data[j]), copy(data[i]));
+			local = eval(root);
 			result = max(result, local);
 		}
 	}
@@ -377,8 +381,7 @@ int main(int argc, char *argv[]) {
 	auto parse_time = chrono::high_resolution_clock::now();
 	print_result("parse", (parse_time - start_time));
 
-	// result_t p1_result = part1(data);
-	result_t p1_result = "0";
+	result_t p1_result = part1(data);
 
 	auto p1_time = chrono::high_resolution_clock::now();
 	print_result(p1_result, (p1_time - parse_time));
