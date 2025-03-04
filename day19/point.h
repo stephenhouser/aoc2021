@@ -61,16 +61,27 @@ struct point_t {
 	}
 
 	bool operator<(const point_t &rhs) const {		
+		// // sorts by z, then y, then x 
+		// if (z == rhs.z) {
+		// 	if (y == rhs.y) {
+		// 		return x < rhs.x;
+		// 	}
+
+		// 	return y < rhs.y;
+		// }
+
+		// return z < rhs.z;
+
 		// sorts by z, then y, then x 
-		if (z == rhs.z) {
+		if (x == rhs.x) {
 			if (y == rhs.y) {
-				return x < rhs.x;
+				return z < rhs.z;
 			}
 
 			return y < rhs.y;
 		}
 
-		return z < rhs.z;
+		return x < rhs.x;		
 	}
 
 	bool operator==(const point_t &other) const {
