@@ -16,8 +16,9 @@ struct point_t {
 	dimension_t y = 0;
 	dimension_t z = 0;
 
-	value_t u = 0;
-	value_t v = 0;
+	// value_t u = 0;
+	// value_t v = 0;
+	value_t w = 0;
 
 	point_t() {}
 
@@ -33,7 +34,10 @@ struct point_t {
 	point_t(const point_t &p) :
 		x(static_cast<dimension_t>(p.x)), 
 		y(static_cast<dimension_t>(p.y)), 
-		z(static_cast<dimension_t>(p.z)) {
+		z(static_cast<dimension_t>(p.z)),
+		// u(static_cast<dimension_t>(p.u)),
+		// v(static_cast<dimension_t>(p.v)),
+		w(static_cast<dimension_t>(p.w)) {			
 	}
 
 	template <std::convertible_to<dimension_t> Tx, std::convertible_to<dimension_t> Ty>
@@ -83,6 +87,9 @@ struct point_t {
 		this->x = other.x;
 		this->y = other.y;
 		this->z = other.z;
+		// this->u = other.u;
+		// this->v = other.v;
+		this->w = other.w;
 		return *this;
 	}
 
@@ -131,6 +138,8 @@ struct point_t {
 	
 		return {split_numbers(str)};
 	}
+
+	friend struct std::formatter<point_t>;
 };
 
 std::ostream& operator<<(std::ostream& os, const point_t &p);
@@ -146,6 +155,27 @@ struct std::hash<point_t> {
 								| (((size_t)p.y & 0xFFFF)      ));
 	}
 };
+
+/* std::format not quite working right on clang 16 on macOS */
+template <>
+struct std::formatter<point_t> {
+    constexpr auto parse(std::format_parse_context &context) {
+        return context.begin();
+    }
+
+    auto format(const point_t &p, std::format_context &context) const {
+        auto out = context.out();
+
+		std::format_to(out, "({},{}", p.x, p.y);
+		if (p.z) {
+			std::format_to(out, ",{}", p.z);
+		}
+		std::format_to(out, ")");
+		
+		return out;
+    }
+};
+
 
 // read points until we hit an empty line
 std::vector<point_t> read_points(std::istream& is, void (*fn)(point_t &point, const std::string &line) = nullptr);

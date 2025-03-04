@@ -27,7 +27,9 @@ uint64_t distance(const point_t &p1, const point_t &p2) {
 struct scanner_t {
 	uint64_t id;
 	vector<point_t> points;
-	unordered_map<uint64_t, uint64_t> distances = {};
+	unordered_map<uint64_t, vector<pair<point_t, point_t>>> distances = {};
+
+	point_t origin = {-1, -1, -1};
 
 	scanner_t(const uint64_t n, const vector<point_t> &points) : id(n), points(points) {
 		set_distances();
@@ -35,9 +37,11 @@ struct scanner_t {
 
 	private:
 	void set_distances() {
+		// create map of distance -> points
 		for (size_t i = 0; i < points.size(); i++) {
 			for (size_t j = i+1; j < points.size(); j++) {
-				this->distances[distance(points[i], points[j])]++;
+				auto d = distance(points[i], points[j]);
+				this->distances[d].push_back({points[i], points[j]});
 			}
 		}
 	}
@@ -51,45 +55,16 @@ template <typename T> void print_result(T result, chrono::duration<double, milli
 
 // bool match_scanner(const vec)
 uint64_t common_distances(const scanner_t &s1, const scanner_t &s2) {
-	uint64_t common = 0;
-	for (const auto [distance, count] : s1.distances) {
+	uint64_t in_common = 0;
+	for (const auto &[distance, count] : s1.distances) {
 		if (s2.distances.contains(distance)) {
-			common += min(count, s2.distances.at(distance));
+			in_common += min(count.size(), s2.distances.at(distance).size());
 		}
 	}
 
-	return common;
+	return in_common;
 }
 
-// 3d transform matrix
-using matrix_t = array<array<uint64_t, 4>, 4>;
-
-/* 
- translation
-	1  0  0  0
-	0  1  0  0
-	0  0  1  0
-	dx dy dz 1
-
-rotate z
-	cos -sin 0 0
-	sin  cos 0 0
-	0      0 1 0
-	0      0 0 1
-
-rotate y
-	cos  0 sin 0
-	0    1   0 0
-	-sin 0 cos 0
-	0    0   0 1
-
-rotate x
-	1   0    0 0
-	0 cos -sin 0
-	0 sin  cos 0
-	0   0    0 1
-
-*/
 vector<vector<point_t>> rotations = {
 	{{ 1,  0,  0}, { 0,  1,  0}, { 0,  0,  1}},
 	{{ 0,  0,  1}, { 0,  1,  0}, {-1,  0,  0}},
@@ -131,40 +106,73 @@ point_t rotate(const point_t &p, const size_t n) {
     return result;
 }
 
-point_t transform(const matrix_t &mx, const point_t &p) {
-	// w coord is 1
-    point_t result;
-	uint64_t w = p.x * mx[0][3] + p.y * mx[1][3] + p.z + mx[2][3] + 1 * mx[3][3];
-	result.x = (p.x * mx[0][0] + p.y * mx[1][0] + p.z + mx[2][0] + 1 * mx[3][0]) / w;
-	result.y = (p.x * mx[0][1] + p.y * mx[1][1] + p.z + mx[2][1] + 1 * mx[3][1]) / w;
-	result.z = (p.x * mx[0][2] + p.y * mx[1][2] + p.z + mx[2][2] + 1 * mx[3][2]) / w;
-
-    return result;
+void print_vp(const vector<pair<point_t, point_t>> &points) {
+	for (const auto &[p1, p2] : points) {
+		println("{},{}\n", p1, p2);
+	}
 }
 
-matrix_t compose(const matrix_t &first, const matrix_t&second) {
-    matrix_t result;
-    for ( int i = 0; i < 4; ++i ) {
-        for ( int j = 0; j < 4; ++j ) {
-            result[i][j] = first[i][0] * second[0][j]
-                           + first[i][1] * second[1][j]
-                           + first[i][2] * second[2][j]
-                           + first[i][3] * second[3][j];
+point_t align(const scanner_t &s1, const scanner_t &s2) {
+	point_t offset;
+	uint64_t confirmations = 12;
+
+	for (const auto &[d, d1] : s1.distances) {
+		if (s2.distances.contains(d)) {
+			auto d2 = s2.distances.at(d);
+			if (d1.size() == 1 && d2.size() == 1) {
+				// print("\ts{} has {} at distance {}\n\t\t", s1.id, d1.size(), d);
+				// print_vp(d1);
+				// print("\ts{} has {} at distance {}\n\t\t", s2.id, d2.size(), d);
+				// print_vp(d2);
+
+				point_t s_origin = d1[0].first;
+				// point_t s_p1 = d1[0].first - s_origin;
+				point_t s_p2 = d1[0].second - s_origin;
+				// cout << "\t\tXlate: " << s_p1 << ", " << s_p2 << " --> ";
+
+				point_t d_origin = d2[0].first;
+				// point_t d_p1 = d2[0].first - d_origin;
+				point_t d_p2 = d2[0].second - d_origin;
+				// cout << d_p1 << ", " << d_p2 << endl;
+
+				for (size_t r = 0; r < 24; r++) {
+					point_t d = rotate(d_p2, r);
+					if (d == s_p2) {
+						// cout << "\t\t" << d_p1 << ", " << rotate(d_p2, r) << " -- " << r << endl;
+						point_t check = s_origin - rotate(d_origin, r);
+						// cout << "\t\tcheck " << check << endl;
+						if (offset.x == 0 || check == offset) {
+							offset = check;
+							if (confirmations-- == 0) {
+								offset.w = (dimension_t)r;
+								return offset;
+							}
+						}
+						break;
+					}
+				}
+			}
 		}
 	}
 
-    return result;
+	return {};
 }
 
 /* Part 1 */
 const result_t part1(const data_t &data) {
 	auto scanners = data;
+	scanners[0].origin = {0, 0, 0};
+
 	for (uint64_t i = 0; i < scanners.size(); i++) {
 		for (uint64_t j = i+1; j < scanners.size(); j++) {
-			uint64_t common = common_distances(scanners[i], scanners[j]);
+			auto s1 = scanners[i];
+			auto s2 = scanners[j];
+			uint64_t common = common_distances(s1, s2);
 			if (common >= (12+11+10+9+8+7+6+5+4+3+2+1)) {
-				print("scanner {} and {} have {} distances in common\n", 
-					scanners[i].id, scanners[j].id, common);
+				print("scanner {} and {} have {} distances in common ", s1.id, s2.id, common);
+
+				point_t offset = align(s1, s2);
+				println("aligned {},r={}", offset, offset.w);
 			}
 		}
 	}
