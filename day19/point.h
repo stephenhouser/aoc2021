@@ -186,6 +186,13 @@ struct std::formatter<point_t> {
     }
 };
 
+inline dimension_t manhattan_distance(const point_t &p1, const point_t &p2) {
+	dimension_t dx = p1.x > p2.x ? p1.x - p2.x : p2.x - p1.x;
+	dimension_t dy = p1.y > p2.y ? p1.y - p2.y : p2.y - p1.y;
+	dimension_t dz = p1.z > p2.z ? p1.z - p2.z : p2.z - p1.z;
+	return dx + dy + dz;
+}
+
 // read points until we hit an empty line
 std::vector<point_t> read_points(std::istream& is, void (*fn)(point_t &point, const std::string &line) = nullptr);
 

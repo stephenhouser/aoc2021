@@ -18,19 +18,14 @@
 
 using namespace std;
 
-uint64_t distance(const point_t &p1, const point_t &p2) {
-	uint64_t dx = (uint64_t)abs(p1.x - p2.x);
-	uint64_t dy = (uint64_t)abs(p1.y - p2.y);
-	uint64_t dz = (uint64_t)abs(p1.z - p2.z);
-	return dx + dy + dz;
-}
-
 struct scanner_t {
 	uint64_t id;
 	vector<point_t> points;
+
+	// map of beacon pairs at each distance; distance -> { <beacon, beacon>, {},... }
 	unordered_map<uint64_t, vector<pair<point_t, point_t>>> distances = {};
 
-	// point_t origin = {0, 0, 0};
+	// location of all scanners merged into this scanner
 	vector<point_t> scanners = {{0, 0, 0}};
 
 	scanner_t(const uint64_t n, const vector<point_t> &points) : id(n), points(points) {
@@ -53,8 +48,8 @@ struct scanner_t {
 		this->distances.clear();
 		for (size_t i = 0; i < points.size(); i++) {
 			for (size_t j = i+1; j < points.size(); j++) {
-				auto d = distance(points[i], points[j]);
-				this->distances[d].push_back({points[i], points[j]});
+				auto d = manhattan_distance(points[i], points[j]);
+				this->distances[(uint64_t)d].push_back({points[i], points[j]});
 			}
 		}
 	}
@@ -66,9 +61,9 @@ using result_t = string;
 const data_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
 
-// bool match_scanner(const vec)
-uint64_t common_distances(const scanner_t &s1, const scanner_t &s2) {
-	uint64_t in_common = 0;
+
+size_t distance_matches(const scanner_t &s1, const scanner_t &s2) {
+	size_t in_common = 0;
 	for (const auto &[distance, count] : s1.distances) {
 		if (s2.distances.contains(distance)) {
 			in_common += min(count.size(), s2.distances.at(distance).size());
@@ -78,6 +73,8 @@ uint64_t common_distances(const scanner_t &s1, const scanner_t &s2) {
 	return in_common;
 }
 
+// 24 different possible rotations around x, y, and z axes
+// try each one and use the index for transformation.
 vector<vector<point_t>> rotations = {
 	{{ 1,  0,  0}, { 0,  1,  0}, { 0,  0,  1}},
 	{{ 0,  0,  1}, { 0,  1,  0}, {-1,  0,  0}},
@@ -119,25 +116,18 @@ point_t rotate(const point_t &p, const size_t n) {
     return result;
 }
 
-void print_vp(const vector<pair<point_t, point_t>> &points) {
-	for (const auto &[p1, p2] : points) {
-		println("{},{}\n", p1, p2);
-	}
-}
-
 point_t transform_point(const point_t &p, const point_t &xform) {
 	return rotate(p, (uint64_t)xform.w) + xform;
 }
 
 vector<point_t> transform_points(const vector<point_t> &points, point_t &xform) {
-	vector<point_t> trans;
+	auto transformer = [&xform](const point_t &p) {
+		return transform_point(p, xform);
+	};
 
-	for (const auto &p : points) {
-		// println("{} -> {}", p, np);
-		trans.emplace_back(transform_point(p, xform));
-	}
-
-	return trans;
+	return points | 
+			views::transform(transformer) |
+			ranges::to<vector<point_t>>();
 }
 
 void merge_scanners(scanner_t &s1, scanner_t &s2, point_t &xform) {
@@ -147,18 +137,15 @@ void merge_scanners(scanner_t &s1, scanner_t &s2, point_t &xform) {
 	points.insert(s2_points.begin(), s2_points.end());
 
 	vector<point_t> v_points{points.begin(), points.end()};
-	// scanner_t merged(s1.id, v_points);
 
 	s1.points.clear();
 	s1.set_points(v_points);
-	s2.clear_points(); //points.clear();
+	s2.clear_points();
 
 	// update scanners that have been merged here
 	for (const auto &p : s2.scanners) {
 		s1.scanners.emplace_back(transform_point(p, xform));
 	}
-	// s2.origin = transform_point({0,0,0}, xform);
-	// return merged;
 }
 
 size_t matching_points(const scanner_t &s1, const scanner_t &s2, point_t &xform) {
@@ -171,52 +158,43 @@ size_t matching_points(const scanner_t &s1, const scanner_t &s2, point_t &xform)
 	vector<point_t> common;
 	set_intersection(p1.begin(), p1.end(), p2.begin(), p2.end(), back_inserter(common));
 
-	// println("found {} macthing points {}, {} with {}", common.size(), s1.id, s2.id, xform);
 	return common.size();
 }
 
-point_t align(const scanner_t &s1, const scanner_t &s2, bool verbose = false) {
+point_t align(const scanner_t &s1, const scanner_t &s2, size_t coincident_points) {
 	point_t offset;
-	// uint64_t confirmations = 12;
 
-	for (const auto &[d, d1] : s1.distances) {
-		if (s2.distances.contains(d)) {
-			auto d2 = s2.distances.at(d);
-			if (d1.size() == 1 && d2.size() == 1) {
-				if (verbose) {
-					print("\ts{} has {} at distance {}\n\t\t", s1.id, d1.size(), d);
-					print_vp(d1);
-					print("\ts{} has {} at distance {}\n\t\t", s2.id, d2.size(), d);
-					print_vp(d2);
+	// pairs of pairs of points that have the same distance
+	auto distance_pairs = [&s1, &s2]() {
+		vector<pair<pair<point_t, point_t>, pair<point_t, point_t>>> d_pairs;
+
+		for (const auto &[d, d1] : s1.distances) {
+			if (s2.distances.contains(d)) {
+				auto d2 = s2.distances.at(d);
+				if (d1.size() == 1 && d2.size() == 1) {
+					d_pairs.push_back({d1[0], d2[0]});
 				}
+			}
+		}
 
-				point_t s_origin = d1[0].first;
-				point_t s_p1 = d1[0].first - s_origin;
-				point_t s_p2 = d1[0].second - s_origin;
+		return d_pairs;
+	};
 
-				point_t d_origin = d2[0].first;
-				point_t d_p1 = d2[0].first - d_origin;
-				point_t d_p2 = d2[0].second - d_origin;
-				if (verbose) {
-					cout << "\t\tXlate: " << s_p1 << ", " << s_p2 << " --> ";
-					cout << d_p1 << ", " << d_p2 << endl;
-				}
+	for (const auto &[p1, p2] : distance_pairs()) {
+		// translate to "origins" (based on chosen point)
+		point_t p1_relative = p1.second - p1.first;
+		point_t p2_relative = p2.second - p2.first;
 
-				for (size_t r = 0; r < 24; r++) {
-					point_t d = rotate(d_p2, r);
-					if (d == s_p2) {
-						point_t check = s_origin - rotate(d_origin, r);
-						if (verbose) {
-							cout << "\t\t" << d_p1 << ", " << rotate(d_p2, r) << " -- " << r << endl;
-							cout << "\t\tcheck " << check << endl;
-						}
+		// check all 24 rotations
+		// for rotated "p" from p2_relative is the same as in s1 space (p1)
+		for (size_t r = 0; r < rotations.size(); r++) {
+			point_t p = rotate(p2_relative, r);
+			if (p == p1_relative) {
+				point_t check = p1.first - rotate(p2.first, r);
+				check.w = (dimension_t)r;
 
-						check.w = (dimension_t)r;
-						auto matches = matching_points(s1, s2, check);
-						if (matches >= 12) {
-							return check;
-						}
-					}
+				if (coincident_points <= matching_points(s1, s2, check)) {
+					return check;
 				}
 			}
 		}
@@ -242,52 +220,16 @@ vector<pair<scanner_t &, scanner_t &>> scanner_pairs(vector<scanner_t> &scanners
 	return pairs;
 }
 
-// scanner_t merge_scanners(const data_t &data) {
-// 	auto scanners = data;
-// 	uint64_t required_matches = (12+11+10+9+8+7+6+5+4+3+2+1);
-
-// 	int active_scanners = (int)scanners.size();
-// 	while (active_scanners > 1) {
-
-// 		for (uint64_t i = 0; i < scanners.size(); i++) {
-// 			auto &s1 = scanners[i];
-// 			if (scanners[i].points.size() != 0) {
-// 				for (uint64_t j = i+1; j < scanners.size(); j++) {
-// 					auto &s2 = scanners[j];
-
-// 					if (scanners[j].points.size() != 0) {
-// 						uint64_t common = common_distances(s1, s2);
-// 						if (common >= required_matches) {
-// 							point_t offset = align(s1, s2, false);
-// 							if (offset.x != 0) {
-// 								// println("merge {} + {} : common={} xform={},r={}", s1.id, s2.id, common, offset, offset.w);
-// 								merge_scanners(s1, s2, offset);
-// 								assert(scanners[i].points.size() > 0);
-// 								assert(scanners[j].points.size() == 0);
-// 								if (--active_scanners == 1) {
-// 									return scanners[i];
-// 								}
-// 							}
-// 						}
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	return scanner_t(0, {});
-// }
-
-scanner_t merge_scanners(const data_t &data, int matches) {
+scanner_t merge_scanners(const data_t &data, size_t conicident_points) {
 	auto scanners = data;
-	uint64_t required_matches = (matches * (matches + 1)) / 2;
+	size_t required_matches = (conicident_points * (conicident_points + 1)) / 2;
 
 	int active_scanners = (int)scanners.size();
 	while (active_scanners > 1) {
 
 		for (auto &[s1, s2] : scanner_pairs(scanners)) {
-			if (distance_matches < common_distances(s1, s2)) {
-				point_t offset = align(s1, s2, false);
+			if (required_matches < distance_matches(s1, s2)) {
+				point_t offset = align(s1, s2, conicident_points);
 				if (offset.x != 0) {
 					// println("merge {} + {} : common={} xform={},r={}", s1.id, s2.id, common, offset, offset.w);
 					merge_scanners(s1, s2, offset);
@@ -313,12 +255,13 @@ const result_t part1(const data_t &data) {
 const result_t part2(const data_t &data) {
 	scanner_t ocean = merge_scanners(data, 12);
 
+	// find max distance among any two scanners in the one remaining scanner
 	size_t max_distance = 0;
 	auto scanners = ocean.scanners;
 	for (size_t i = 0; i < scanners.size(); i++) {
 		for (size_t j = i; j < scanners.size(); j++) {
-			auto dist = distance(scanners[i], scanners[j]);
-			max_distance = max(max_distance, dist);
+			size_t dist = (size_t)manhattan_distance(scanners[i], scanners[j]);
+			max_distance = (size_t)max(max_distance, dist);
 		}
 	}
 
