@@ -242,33 +242,57 @@ vector<pair<scanner_t &, scanner_t &>> scanner_pairs(vector<scanner_t> &scanners
 	return pairs;
 }
 
-scanner_t merge_scanners(const data_t &data) {
+// scanner_t merge_scanners(const data_t &data) {
+// 	auto scanners = data;
+// 	uint64_t required_matches = (12+11+10+9+8+7+6+5+4+3+2+1);
+
+// 	int active_scanners = (int)scanners.size();
+// 	while (active_scanners > 1) {
+
+// 		for (uint64_t i = 0; i < scanners.size(); i++) {
+// 			auto &s1 = scanners[i];
+// 			if (scanners[i].points.size() != 0) {
+// 				for (uint64_t j = i+1; j < scanners.size(); j++) {
+// 					auto &s2 = scanners[j];
+
+// 					if (scanners[j].points.size() != 0) {
+// 						uint64_t common = common_distances(s1, s2);
+// 						if (common >= required_matches) {
+// 							point_t offset = align(s1, s2, false);
+// 							if (offset.x != 0) {
+// 								// println("merge {} + {} : common={} xform={},r={}", s1.id, s2.id, common, offset, offset.w);
+// 								merge_scanners(s1, s2, offset);
+// 								assert(scanners[i].points.size() > 0);
+// 								assert(scanners[j].points.size() == 0);
+// 								if (--active_scanners == 1) {
+// 									return scanners[i];
+// 								}
+// 							}
+// 						}
+// 					}
+// 				}
+// 			}
+// 		}
+// 	}
+
+// 	return scanner_t(0, {});
+// }
+
+scanner_t merge_scanners(const data_t &data, int matches) {
 	auto scanners = data;
-	uint64_t required_matches = (12+11+10+9+8+7+6+5+4+3+2+1);
+	uint64_t required_matches = (matches * (matches + 1)) / 2;
 
 	int active_scanners = (int)scanners.size();
 	while (active_scanners > 1) {
 
-		for (uint64_t i = 0; i < scanners.size(); i++) {
-			auto &s1 = scanners[i];
-			if (scanners[i].points.size() != 0) {
-				for (uint64_t j = i+1; j < scanners.size(); j++) {
-					auto &s2 = scanners[j];
-
-					if (scanners[j].points.size() != 0) {
-						uint64_t common = common_distances(s1, s2);
-						if (common >= required_matches) {
-							point_t offset = align(s1, s2, false);
-							if (offset.x != 0) {
-								// println("merge {} + {} : common={} xform={},r={}", s1.id, s2.id, common, offset, offset.w);
-								merge_scanners(s1, s2, offset);
-								assert(scanners[i].points.size() > 0);
-								assert(scanners[j].points.size() == 0);
-								if (--active_scanners == 1) {
-									return scanners[i];
-								}
-							}
-						}
+		for (auto &[s1, s2] : scanner_pairs(scanners)) {
+			if (distance_matches < common_distances(s1, s2)) {
+				point_t offset = align(s1, s2, false);
+				if (offset.x != 0) {
+					// println("merge {} + {} : common={} xform={},r={}", s1.id, s2.id, common, offset, offset.w);
+					merge_scanners(s1, s2, offset);
+					if (--active_scanners == 1) {
+						return s1;
 					}
 				}
 			}
@@ -278,15 +302,16 @@ scanner_t merge_scanners(const data_t &data) {
 	return scanner_t(0, {});
 }
 
+
 /* Part 1 */
 const result_t part1(const data_t &data) {
-	scanner_t ocean = merge_scanners(data);
+	scanner_t ocean = merge_scanners(data, 12);
 
 	return to_string(ocean.points.size());
 }
 
 const result_t part2(const data_t &data) {
-	scanner_t ocean = merge_scanners(data);
+	scanner_t ocean = merge_scanners(data, 12);
 
 	size_t max_distance = 0;
 	auto scanners = ocean.scanners;
