@@ -156,7 +156,6 @@ struct std::hash<point_t> {
 	}
 };
 
-/* std::format not quite working right on clang 16 on macOS */
 template <>
 struct std::formatter<point_t> {
     constexpr auto parse(std::format_parse_context &context) {
@@ -171,11 +170,10 @@ struct std::formatter<point_t> {
 			std::format_to(out, ",{}", p.z);
 		}
 		std::format_to(out, ")");
-		
+
 		return out;
     }
 };
-
 
 // read points until we hit an empty line
 std::vector<point_t> read_points(std::istream& is, void (*fn)(point_t &point, const std::string &line) = nullptr);
