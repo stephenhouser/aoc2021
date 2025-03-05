@@ -248,8 +248,9 @@ struct charmap_t {
 		};
 		
 		const auto &[min, max] = bounding_box(points);
-
-		charmap_t map((size_t)abs(max.x - min.x), (size_t)abs(max.y - min.y), filler);
+		const dimension_t dx = max.x > min.x ? max.x - min.x : min.x - max.x;
+		const dimension_t dy = max.y > min.y ? max.y - min.y : min.y - max.y;
+		charmap_t map(dx, dy, filler);
 
 		for (const auto &point : points) {
 			map.set(point, marker);
