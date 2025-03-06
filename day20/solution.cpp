@@ -96,39 +96,44 @@ const result_t part1(const data_t &data) {
 	// for (const auto &[p, v] : map) {
 	// 	println("{} = {}", p, v);
 	// }
-	vector<point_t> pts{points.begin(), points.end()};
-	charmap_t m = charmap_t::from_points(pts);
-	cout << m;
+	// vector<point_t> pts{points.begin(), points.end()};
+	// charmap_t m = charmap_t::from_points(pts);
+	// cout << m;
 
 	map_t current = points;
 	map_t next;
 
 	int iterations = 0;
-	while (iterations++ < 2) {
-		char check_char = (iterations % 2) ? '.' : '#';
+	while (iterations < 50) {
+		char check_char = (iterations % 2) ? '#' : '.';
 
-		auto [bound_min, bound_max] = outset_box(bounds_of(current), 2);
-		println("{}, {} 0 is {}", bound_min, bound_max, check_char);
+		auto [bound_min, bound_max] = outset_box(bounds_of(current), 4);
+		// println("{}, {} 0 is {}", bound_min, bound_max, check_char);
 
 		for (dimension_t y = bound_min.y; y < bound_max.y; y++) {
 			for (dimension_t x = bound_min.x; x < bound_max.x; x++) {
 				point_t p{x, y};
 				auto pixel_index = pixel_value(p, current);
-				auto value = instructions[pixel_index];
+				if (iterations % 2 == 1) {
+					pixel_index = ~pixel_index & 0x1ff;
+				}
+
+				auto rule = instructions[pixel_index];
 				// println("{} -> {} = {}", p, pixel_index, value);
-				if (value == check_char) {
+				if (rule == check_char) {
 					next.emplace(p);
 				}
 			}
 		}
 
-		swap(current, next);
+		swap(next, current);
 		next.clear();
+		iterations++;
 	}
 
-	vector<point_t> cpts{current.begin(), current.end()};
-	charmap_t cm = charmap_t::from_points(cpts);
-	cout << cm;
+	// vector<point_t> cpts{current.begin(), current.end()};
+	// charmap_t cm = charmap_t::from_points(cpts);
+	// cout << cm;
 	// map_t next_map;
 	// for (const auto &[p, v] : map) {
 	// }
