@@ -31,15 +31,16 @@ const data_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
 
 void ten_sided_turn(data_t &players, int turn) {
-	int roll = 3 * turn + (3 * turn - 1) + (3 * turn - 2);
+	// deterministic die rolls 1,2,3,4,5,6,7,8,9,10,11,12,...
+	// each player consumes 3 die rolls per turn so they will
+	// get 1, 2, 3 on turn 1, 4, 5, 6 on turn 2, etc.
+	// sum of rolls for turn n = 3n-2 + 3n-	1 + 3n = 9n - 3 = 3(3n-1)
+	int roll = 3 * (3 * turn - 1);
 	auto &player = (turn % 2 == 1) ? players[0] : players[1];
 
 	int position = (((player.position-1) + roll) % 10) + 1;
 	player.position = position;
 	player.score += (uint64_t)position;
-	// int player_n = (turn % 2 == 1) ? 1 : 2;
-	// print("turn={} roll={} player={} pos={} score={}\n", 
-	// 		turn, roll, player_n, player.position, player.score);
 }
 
 uint64_t max_score(const data_t &players) {
@@ -70,20 +71,43 @@ const result_t part1(const data_t &starting_players) {
 	return to_string(result);
 }
 
+void quantum_turn(size_t turn, player_t p1, player_t p2, uint64_t* p1_wins, uint64_t* p2_wins, uint64_t ways) {
+	// the  number of ways to roll each total with three 3-sided dice
+	int roll_ways[][2] = {
+			{3, 1},	 // can roll 3, 1 way
+			{4, 3},	 // can roll 4, 3 ways
+			{5, 6},
+			{6, 7},
+			{7, 6},
+			{8, 3},
+			{9, 1}
+		};
+
+	if (p2.score >= 21) {
+		(*p2_wins) += ways;
+		return;
+	}
+
+	for (int i = 0; i < 7; i++) {
+		int roll = roll_ways[i][0];
+		int position = (p1.position + roll - 1) % 10 + 1;
+		uint64_t new_ways = (uint64_t)roll_ways[i][1];
+
+		player_t player = player_t(position);
+		player.score = p1.score + (uint64_t)position;
+		quantum_turn(turn + 1, p2, player, p2_wins, p1_wins, ways * new_ways);
+	}
+}
+
 const result_t part2(const data_t &starting_players) {
-	const uint64_t winning_score = 21;
+	// const uint64_t winning_score = 21;
 	data_t players = starting_players;
 
-	int turn = 1;
-	while (max_score(players) < winning_score) {
-		ten_sided_turn(players, turn++);
-	}
-	
-	turn--;
+	uint64_t p1_wins = 0;
+	uint64_t p2_wins = 0;
+	quantum_turn(0, players[0], players[1], &p1_wins, &p2_wins, 1);
 
-	uint64_t rolls = (uint64_t)turn * 3;
-	uint64_t result = players[0].score < players[1].score ? players[0].score : players[1].score;
-	result *= rolls;
+	uint64_t result = p1_wins > p2_wins ? p1_wins : p2_wins;
 
 	return to_string(result);
 }
