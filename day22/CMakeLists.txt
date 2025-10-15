@@ -15,7 +15,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(${DAY_TARGET} solution.cpp
 	split.h
 	point.h point.cpp
-	vector.h vector.cpp)
+	cube.h cube.cpp)
 
 target_compile_options(${DAY_TARGET} 
 	PRIVATE -O3 -Wall -Wextra -Wpedantic -Weffc++ -Wconversion -Wsign-conversion -Werror
