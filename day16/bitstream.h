@@ -25,7 +25,7 @@ static std::vector<uint8_t> decode_hex(const std::string &str) {
 	for (size_t i = 0; i < str.size(); i += 2) {
 		uint8_t high = decode_hex(str[i]);
 		uint8_t low = (i+1 < str.size()) ? decode_hex(str[i+1]) : 0x00;
-		bytes.push_back(high << 4 | low);
+		bytes.push_back((uint8_t)(high << 4) | low);
 	}
 
 	return bytes;
@@ -46,19 +46,20 @@ class bitstream_t {
 
 		size_t read(const size_t bits) {
 			auto s_byte = pos / 8;	// which byte do we start in
-			auto s_bit  = pos % 8;	// which bit in that byte
+			// auto s_bit  = pos % 8;	// which bit in that byte
 			auto e_byte = (pos+bits) / 8;
 			auto e_bit  = (pos+bits) % 8;
 
 			if (bits > 16) {
 				std::cerr << "ERROR: Too many bits! " << bits << std::endl;
 			}
+
 			pos += bits;
 
 			size_t full = 0x00;
 			for (size_t b = s_byte; b <= e_byte; b++) {
 				full = (full << 8) | buffer[b];
-				s_bit += 8;
+				// s_bit += 8;
 			}
 
 			size_t mask = ~(~0u << bits);

@@ -82,10 +82,10 @@ packet_t decode(bitstream_t &bits) {
 size_t decode_literal(bitstream_t &bits) {
 	size_t literal = 0x00;
 
-	size_t nybbles = 1;
+	// size_t nybbles = 1;
 	while (bits.read(1)) {
 		literal = (literal << 4) | bits.read(4);
-		nybbles++;
+		// nybbles++;
 	}
 	literal = (literal << 4) | bits.read(4);
 	return literal;
