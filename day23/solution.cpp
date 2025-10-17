@@ -45,6 +45,15 @@ struct std::hash<state_t> {
 	}
 };
 
+/* cost comparison function for priority queue containing state_t */
+class compare_cost {
+	public:
+		bool operator()(state_t &a, state_t &b) {
+			return b.cost < a.cost;
+		}
+};
+
+
 const state_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
 
@@ -137,7 +146,7 @@ size_t amphipod_cost(char amphipod) {
 	}
 }
 
-
+/* Find all the amphipods in the game */
 vector<size_t> find_amphipods(const state_t &state) {
 	vector<size_t> positions;
 
@@ -150,15 +159,17 @@ vector<size_t> find_amphipods(const state_t &state) {
 	return positions;
 }
 
+/* is the position occupied in the state */
 bool is_occupied(const state_t &state, size_t pos) {
 	return state.state[pos] != '.';
 }
 
+/* is the position a room */
 bool is_room(size_t pos) {
 	return pos >= 11;
 }
 
-// is the amphipod at pos in its home room?
+/* is the amphipod at pos in its home room? */
 bool is_home_room(size_t pos, char amphipod) {
 	if (is_room(pos)) {
 		assert(amphipod_homes.contains(amphipod));
@@ -170,7 +181,7 @@ bool is_home_room(size_t pos, char amphipod) {
 	return false;
 }
 
-// does the amphipod's room contain only '.' or the amphipods that belong there?
+/* does the amphipod's room contain only '.' or the amphipods that belong there? */
 bool room_contains_only(const state_t &state, char amphipod) {
 	assert(amphipod_homes.contains(amphipod));
 
@@ -180,7 +191,9 @@ bool room_contains_only(const state_t &state, char amphipod) {
 	});
 }
 
-/* can amphipod at from move to to based on current state */
+/* Can amphipod at `from` move to `to` based on current state.
+ * This is the hard part of the problem. Gettig this right!
+ */ 
 bool can_move(const state_t &state, size_t from, size_t to) {
 	char amphipod = state.state[from];
 
@@ -211,51 +224,28 @@ bool can_move(const state_t &state, size_t from, size_t to) {
 	return true;
 }
 
-
-// returns valid moves for amphipod at pos, not going back to from while in state
+/* return all the valid moves for the amphipod at pos.
+ * avoid backracking to 'from' position.
+ */
 std::vector<move_t> valid_moves(const state_t &state, size_t pos, size_t from) {
-	bool debug = false;
-
-	std::vector<move_t> moves;
-	char amphipod = state.state[pos];
-
-	// auto moves = std::ranges::views::filter(all_moves.at(pos), 
-	// 	[&](const move_t &move) {
-	// 		return move.position != from && can_move(state, pos, move.position);
-	// 	}
-	// );
-
-	for (auto &move : all_moves.at(pos)) {
-		if (debug) {
-			std::cout << "Considering " << amphipod << " from " << pos << " to " << move.position;
-			std::cout << "  restriction: " << move.restriction << "\t";
+	return std::views::filter(all_moves.at(pos), 
+		[&](const move_t &move) {
+			return move.position != from && can_move(state, pos, move.position);
 		}
-
-		if (move.position != from && can_move(state, pos, move.position)) {
-			if (debug) {
-				std::cout << move.position << " is valid move for " << amphipod << endl;
-			}
-			moves.push_back(move);
-
-		} else {
-			if (debug) {
-				std::cout << "  can't move there, skip" << endl;
-			}
-		}
-	}
-
-	return moves;
+	) | std::ranges::to<std::vector<move_t>>();
 }
 
-// returns possible next states from state for amphipod at pos
+/* Returns all the possible next states for the amphipod at pos */
 void next_states(const state_t &state, size_t pos, size_t from, unordered_set<state_t> &states) {
 	char amphipod = state.state[pos];
 
 	for (const auto &move : valid_moves(state, pos, from)) {
+		// create next state from valid move
 		state_t new_state = state;
 		swap(new_state.state[pos], new_state.state[move.position]);
 		new_state.cost += amphipod_cost(amphipod) * move.cost;
 
+		// if this state is new or lower cost than an existing version, add it to the set
 		if (!states.contains(new_state) || states.find(new_state)->cost > new_state.cost) {
 			// remove existing higher cost state
 			auto existing = states.find(new_state);
@@ -270,13 +260,15 @@ void next_states(const state_t &state, size_t pos, size_t from, unordered_set<st
 	}
 }
 
-// returns possible next states from state for all amphipods
+/* Returns all the possible next states from the current state 
+ * includes seeing if any amphipod can move.
+ */
 unordered_set<state_t> next_states(const state_t &state) {
-	bool debug = false;
-
 	unordered_set<state_t> states;
 
+	bool debug = false;
 	if (debug) {
+		// run a single state expansion for testing
 		next_states(state, 12, 12, states);
 	} else {
 		for (auto pos : find_amphipods(state)) {
@@ -284,20 +276,13 @@ unordered_set<state_t> next_states(const state_t &state) {
 		}
 	}
 
-	if (states.contains(state)) {
-		states.erase(state);
-	}
-
 	return states;
 }
 
-class compare_cost {
-	public:
-		bool operator()(state_t &a, state_t &b) {
-			return b.cost < a.cost;
-		}
-};
-
+/* Dijkstra's algorithm for finding the shortest path in a weighted graph.
+ * In our case the graph is all possible states and the weights are the costs
+ * to move between states.
+ */
 result_t dijkstra(const state_t &initial_state, const state_t &final_state) {
 	bool debug = false;
 
@@ -340,20 +325,20 @@ result_t dijkstra(const state_t &initial_state, const state_t &final_state) {
 		}
 	}
 
+	// return the distance to the final state
 	return dist[final_state.state];
 }
 
 
 /* Part 1 */
 result_t part1([[maybe_unused]] const state_t &initial_state) {
-	bool debug = false;
-
 	state_t final_state = {"...........ABCDABCD", 0};
 
-	cout << "Initial state:" << endl;
-	show_state(initial_state);
-
+	bool debug = false;
 	if (debug) {
+		cout << "Initial state:" << endl;
+		show_state(initial_state);
+	
 		auto states = next_states(initial_state);
 		cout << "Found " << states.size() << " next states." << endl;
 		for (const auto &state : states) {
