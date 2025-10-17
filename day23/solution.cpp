@@ -352,7 +352,7 @@ result_t dijkstra(const state_t &initial_state, const state_t &final_state) {
 	}
 
 	if (debug) {
-		cout << "Dijkstra complete after " << iterations << " iterations, " << dist.size() << " total states." << endl;
+		cout << "\33[2K\rDijkstra complete after " << iterations << " iterations, " << dist.size() << " total states." << endl;
 		for (auto [state, cost] : dist) {
 			if (state == final_state.state) {
 				cout << endl;
@@ -393,17 +393,16 @@ result_t part1(const state_t &data) {
 	return dijkstra(initial_state, final_state);
 }
 
-result_t part2(const state_t &data) {
+result_t part2([[maybe_unused]] const state_t &data) {
 	state_t final_state = {"...........ABCDABCDABCDABCD", 0};
-	// state_t final_state = {"...........ABCDABCDABCD~~~~", 0};
 
-	string state = data.state.substr(0, 15) + "DCBADBAC" + data.state.substr(15);
-	// string state = data.state.substr(0, 15) + "DCBA" + data.state.substr(15) + "~~~~";
+	string state = ".........AD.BC.ABCDABCDABCD";
+	// string state = data.state.substr(0, 15) + "DCBADBAC" + data.state.substr(15);
 	state_t initial_state = {state, 0};
 
-	// show_state(initial_state);
+	show_state(initial_state);
 	show_state_compact(initial_state);
-	// show_state(final_state);
+	show_state(final_state);
 	show_state_compact(final_state);
 
 	return dijkstra(initial_state, final_state);
