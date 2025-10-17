@@ -159,10 +159,8 @@ bool is_room(size_t pos) {
 }
 
 // is the amphipod at pos in its home room?
-bool is_home_room(const state_t &state, size_t pos) {
+bool is_home_room(size_t pos, char amphipod) {
 	if (is_room(pos)) {
-		char amphipod = state.state[pos];
-
 		assert(amphipod_homes.contains(amphipod));
 
 		auto rooms = amphipod_homes.at(amphipod);
@@ -181,30 +179,38 @@ bool room_contains_only(const state_t &state, char amphipod) {
 		return !is_occupied(state, pos) || state.state[pos] == amphipod;
 	});
 }
-/*
+
+/* can amphipod at from move to to based on current state */
 bool can_move(const state_t &state, size_t from, size_t to) {
 	char amphipod = state.state[from];
 
+	// don't move into a spot that has something else in it
 	if (is_occupied(state, to)) {
+		// cout << "Can't move " << amphipod << " from " << from << " to " << to << ": destination occupied." << endl;
 		return false;
 	}
 
-	if (is_room(to) && !is_home_room(state, from)) {
-		assert(amphipod_homes.contains(amphipod));
+	// don't move deeper into a room that isn't our home
+	if (is_room(to) && !is_home_room(to, amphipod) && to > from) {
+		// cout << "Can't move " << amphipod << " from " << from << " to " << to << ": can't move deeper into someone else's home." << endl;
+		return false;
+	}
 
-		auto rooms = amphipod_homes.at(amphipod);
-		if (std::find(rooms.begin(), rooms.end(), to) == rooms.end()) {
-			return false;
-		}
+	// don't move deeper into our home if it contains other amphipods
+	if (is_home_room(to, amphipod) && to > from && !room_contains_only(state, amphipod)) {
+		// cout << "Can't move " << amphipod << " from " << from << " to " << to << ": can't move into home room if it contains other amphipods." << endl;
+		return false;
+	}
 
-		if (!room_contains_only(state, amphipod)) {
-			return false;
-		}
+	// don't move out of home room if it contains only our amphipods
+	if (is_home_room(from, amphipod) && to < from && room_contains_only(state, amphipod)) {
+		// cout << "Can't move " << amphipod << " from " << from << " to " << to << ": can't move out of home room." << endl;
+		return false;
 	}
 
 	return true;
 }
-*/
+
 
 // returns valid moves for amphipod at pos, not going back to from while in state
 std::vector<move_t> valid_moves(const state_t &state, size_t pos, size_t from) {
@@ -213,49 +219,28 @@ std::vector<move_t> valid_moves(const state_t &state, size_t pos, size_t from) {
 	std::vector<move_t> moves;
 	char amphipod = state.state[pos];
 
+	// auto moves = std::ranges::views::filter(all_moves.at(pos), 
+	// 	[&](const move_t &move) {
+	// 		return move.position != from && can_move(state, pos, move.position);
+	// 	}
+	// );
+
 	for (auto &move : all_moves.at(pos)) {
 		if (debug) {
 			std::cout << "Considering " << amphipod << " from " << pos << " to " << move.position;
 			std::cout << "  restriction: " << move.restriction << "\t";
 		}
 
-		// can't move into a spot that has something else in it
-		if (is_occupied(state, move.position)) {
+		if (move.position != from && can_move(state, pos, move.position)) {
 			if (debug) {
-				std::cout << "  not empty, skip" << endl;
+				std::cout << move.position << " is valid move for " << amphipod << endl;
 			}
-			continue;
-		}
-
-		// can't move deeper into a room that isn't our home
-		if (move.restriction != '.' && move.restriction != amphipod && move.position > pos) {
-			if (debug) {
-				std::cout << "  can't move deeper into someone else's home, skip" << endl;
-			}
-			continue;
-		}
-
-		// can't move into our home if it contains other amphipods
-		if (move.restriction == amphipod && move.position > pos && !room_contains_only(state, amphipod)) {
-			if (debug) {
-				std::cout << "  can't move into home room if it contains other amphipods, skip" << endl;
-			}
-			continue;
-		}
-
-		if (is_home_room(state, pos) && room_contains_only(state, amphipod) && move.position < pos) {
-			if (debug) {
-				std::cout << "  can't move out of home room, skip" << endl;
-			}
-			continue;
-		}
-
-		if (debug) {
-			std::cout << move.position << " is valid move for " << amphipod << endl;
-		}
-		// can only move to '.' and places we are not coming from
-		if (state.state[move.position] == '.' && move.position != from) {
 			moves.push_back(move);
+
+		} else {
+			if (debug) {
+				std::cout << "  can't move there, skip" << endl;
+			}
 		}
 	}
 
