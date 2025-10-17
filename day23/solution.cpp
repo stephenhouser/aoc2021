@@ -57,12 +57,12 @@ class compare_cost {
 const state_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
 
-void show_compact_state(const state_t &state) {
+void show_state_compact(const state_t &state) {
 	cout << state.state << "  \t" << state.cost << endl;
 }
 
 void show_state(const state_t &state) {
-	string board = "#############\n#...........#\n###.#.#.#.###\n  #.#.#.#.#\n  #########";
+	string board = "#############\n#...........#\n###.#.#.#.###\n  #.#.#.#.#\n  #.#.#.#.#\n  #.#.#.#.#\n  #########";
 
 	board[15] = state.state[0];
 	board[16] = state.state[1];
@@ -75,14 +75,27 @@ void show_state(const state_t &state) {
 	board[23] = state.state[8];
 	board[24] = state.state[9];
 	board[25] = state.state[10];
+
+	/* rooms */
 	board[31] = state.state[11];
 	board[33] = state.state[12];
 	board[35] = state.state[13];
 	board[37] = state.state[14];
+
 	board[45] = state.state[15];
 	board[47] = state.state[16];
 	board[49] = state.state[17];
 	board[51] = state.state[18];
+
+	/* part 2, bigger rooms */
+	board[57] = state.state[19];
+	board[59] = state.state[20];
+	board[61] = state.state[21];
+	board[63] = state.state[22];
+	board[69] = state.state[23];
+	board[71] = state.state[24];
+	board[73] = state.state[25];
+	board[75] = state.state[26];
 
 	cout << board << "  \t" << state.cost << endl;
 }
@@ -93,7 +106,6 @@ void show_state(const state_t &state) {
 struct move_t {
 	size_t position;	// position index
 	size_t cost;		// cost to move here
-	char restriction;	// only this amphipod can go here, '.' means any
 };
 
 /*
@@ -107,28 +119,28 @@ cost multipler of 2 to account for the extra step.
 		 23    24    25    25 (part 2)
 */
 const std::map<size_t, std::vector<move_t>> all_moves = {
-	{0, {{1, 1, '.'}}},
-	{1, {{0, 1, '.'}, {3, 2, '.'}, {11, 2, 'A'}}},
-	{3, {{1, 2, '.'}, {5, 2, '.'}, {11, 2, 'A'}, {12, 2, 'B'}}},
-	{5, {{3, 2, '.'}, {7, 2, '.'}, {12, 2, 'B'}, {13, 2, 'C'}}},
-	{7, {{5, 2, '.'}, {9, 2, '.'}, {13, 2, 'C'}, {14, 2, 'D'}}},
-	{9, {{7, 2, '.'}, {10, 1, '.'}, {14, 2, 'D'}}},
-	{10, {{9, 1, '.'}}},
-	{11, {{1, 2, '.'}, {3, 2, '.'}, {15, 1, 'A'}}},
-	{12, {{3, 2, '.'}, {5, 2, '.'}, {16, 1, 'B'}}},
-	{13, {{5, 2, '.'}, {7, 2, '.'}, {17, 1, 'C'}}},
-	{14, {{7, 2, '.'}, {9, 2, '.'}, {18, 1, 'D'}}},
-	{15, {{11, 1, 'A'}}},
-	{16, {{12, 1, 'B'}}},
-	{17, {{13, 1, 'C'}}},
-	{18, {{14, 1, 'D'}}},
+	{0, {{1, 1}}},
+	{1, {{0, 1}, {3, 2}, {11, 2}}},
+	{3, {{1, 2}, {5, 2}, {11, 2}, {12, 2}}},
+	{5, {{3, 2}, {7, 2}, {12, 2}, {13, 2}}},
+	{7, {{5, 2}, {9, 2}, {13, 2}, {14, 2}}},
+	{9, {{7, 2}, {10, 1}, {14, 2}}},
+	{10, {{9, 1}}},
+	{11, {{1, 2}, {3, 2}, {15, 1}}},
+	{12, {{3, 2}, {5, 2}, {16, 1}}},
+	{13, {{5, 2}, {7, 2}, {17, 1}}},
+	{14, {{7, 2}, {9, 2}, {18, 1}}},
+	{15, {{11, 1}}},
+	{16, {{12, 1}}},
+	{17, {{13, 1}}},
+	{18, {{14, 1}}},
 };
 
 const std::map<char, std::vector<size_t>> amphipod_homes = {
-	{'A', {11, 15}},
-	{'B', {12, 16}},
-	{'C', {13, 17}},
-	{'D', {14, 18}},
+	{'A', {11, 15, 19, 23}},
+	{'B', {12, 16, 20, 24}},
+	{'C', {13, 17, 21, 25}},
+	{'D', {14, 18, 22, 26}},
 };
 
 size_t amphipod_cost(char amphipod) {
@@ -161,7 +173,7 @@ vector<size_t> find_amphipods(const state_t &state) {
 
 /* is the position occupied in the state */
 bool is_occupied(const state_t &state, size_t pos) {
-	return state.state[pos] != '.';
+	return !(state.state[pos] == '.' || state.state[pos] == '~');
 }
 
 /* is the position a room */
@@ -171,6 +183,11 @@ bool is_room(size_t pos) {
 
 /* is the amphipod at pos in its home room? */
 bool is_home_room(size_t pos, char amphipod) {
+	// if (amphipod == '.') {
+	// 	cout << "Checking home room for empty amphipod at " << pos << endl;
+	// 	return false;
+	// }
+
 	if (is_room(pos)) {
 		assert(amphipod_homes.contains(amphipod));
 
@@ -269,7 +286,9 @@ unordered_set<state_t> next_states(const state_t &state) {
 	bool debug = false;
 	if (debug) {
 		// run a single state expansion for testing
+		show_state_compact(state);
 		next_states(state, 12, 12, states);
+		show_state_compact(state);
 	} else {
 		for (auto pos : find_amphipods(state)) {
 			next_states(state, pos, pos, states);
@@ -331,29 +350,41 @@ result_t dijkstra(const state_t &initial_state, const state_t &final_state) {
 
 
 /* Part 1 */
-result_t part1([[maybe_unused]] const state_t &initial_state) {
-	state_t final_state = {"...........ABCDABCD", 0};
+result_t part1(const state_t &data) {
+	state_t final_state = {"...........ABCDABCD~~~~~~~~", 0};
+	state_t initial_state = {data.state + "~~~~~~~~", 0};
+
+	// show_state(initial_state);
+	show_state_compact(initial_state);
 
 	bool debug = false;
 	if (debug) {
 		cout << "Initial state:" << endl;
-		show_state(initial_state);
+		show_state_compact(initial_state);
 	
 		auto states = next_states(initial_state);
 		cout << "Found " << states.size() << " next states." << endl;
 		for (const auto &state : states) {
-			show_state(state);
+			show_state_compact(state);
 			cout << endl;
 		}
-	} else {
-		return dijkstra(initial_state, final_state);
+		return 0;
 	}
 
-	return 0;
+	return dijkstra(initial_state, final_state);
 }
 
-result_t part2([[maybe_unused]] const state_t &initial_state) {
-	return 0;
+result_t part2([[maybe_unused]] const state_t &data) {
+	state_t final_state = {"...........ABCDABCDABCDABCD", 0};
+
+	string state = data.state.substr(0, 15) + "DCBADBAC" + data.state.substr(15);
+	state_t initial_state = {state, 0};
+
+	show_state(initial_state);
+	show_state_compact(initial_state);
+	show_state_compact(final_state);
+
+	return dijkstra(initial_state, final_state);
 }
 
 const state_t read_data(const string &filename) {
