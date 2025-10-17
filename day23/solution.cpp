@@ -130,10 +130,21 @@ const std::map<size_t, std::vector<move_t>> all_moves = {
 	{12, {{3, 2}, {5, 2}, {16, 1}}},
 	{13, {{5, 2}, {7, 2}, {17, 1}}},
 	{14, {{7, 2}, {9, 2}, {18, 1}}},
-	{15, {{11, 1}}},
-	{16, {{12, 1}}},
-	{17, {{13, 1}}},
-	{18, {{14, 1}}},
+
+	{15, {{11, 1}, {19, 1}}},
+	{16, {{12, 1}, {20, 1}}},
+	{17, {{13, 1}, {21, 1}}},
+	{18, {{14, 1}, {22, 1}}},
+
+	{19, {{15, 1}, {23, 1}}},
+	{20, {{16, 1}, {24, 1}}},
+	{21, {{17, 1}, {25, 1}}},
+	{22, {{18, 1}, {26, 1}}},
+
+	{23, {{19, 1}}},
+	{24, {{20, 1}}},
+	{25, {{21, 1}}},
+	{26, {{22, 1}}},
 };
 
 const std::map<char, std::vector<size_t>> amphipod_homes = {
@@ -162,18 +173,26 @@ size_t amphipod_cost(char amphipod) {
 vector<size_t> find_amphipods(const state_t &state) {
 	vector<size_t> positions;
 
-	for (auto i : views::iota(0u, 19u)) {
-		if (state.state[i] != '.') {
+	for (size_t i = 0; i < state.state.size(); i++) {
+		char c = state.state[i];
+		if (c == 'A' || c == 'B' || c == 'C' || c == 'D') {
 			positions.push_back(i);
 		}
 	}
+
+	// for (auto i : views::iota(0u, 19u)) {
+	// 	if (state.state[i] != '.') {
+	// 		positions.push_back(i);
+	// 	}
+	// }
 
 	return positions;
 }
 
 /* is the position occupied in the state */
 bool is_occupied(const state_t &state, size_t pos) {
-	return !(state.state[pos] == '.' || state.state[pos] == '~');
+	return state.state[pos] != '.';
+	// return !(state.state[pos] == '.' || state.state[pos] == '~');
 }
 
 /* is the position a room */
@@ -204,7 +223,7 @@ bool room_contains_only(const state_t &state, char amphipod) {
 
 	auto rooms = amphipod_homes.at(amphipod);
 	return std::all_of(rooms.begin(), rooms.end(), [&](size_t pos) {
-		return !is_occupied(state, pos) || state.state[pos] == amphipod;
+		return !is_occupied(state, pos) || state.state[pos] == amphipod || state.state[pos] == '~';
 	});
 }
 
@@ -303,7 +322,7 @@ unordered_set<state_t> next_states(const state_t &state) {
  * to move between states.
  */
 result_t dijkstra(const state_t &initial_state, const state_t &final_state) {
-	bool debug = false;
+	bool debug = true;
 
 	std::priority_queue<state_t, std::vector<state_t>, compare_cost> Q;
 	std::map<string, size_t> dist;
@@ -355,7 +374,7 @@ result_t part1(const state_t &data) {
 	state_t initial_state = {data.state + "~~~~~~~~", 0};
 
 	// show_state(initial_state);
-	show_state_compact(initial_state);
+	// show_state_compact(initial_state);
 
 	bool debug = false;
 	if (debug) {
@@ -374,14 +393,17 @@ result_t part1(const state_t &data) {
 	return dijkstra(initial_state, final_state);
 }
 
-result_t part2([[maybe_unused]] const state_t &data) {
+result_t part2(const state_t &data) {
 	state_t final_state = {"...........ABCDABCDABCDABCD", 0};
+	// state_t final_state = {"...........ABCDABCDABCD~~~~", 0};
 
 	string state = data.state.substr(0, 15) + "DCBADBAC" + data.state.substr(15);
+	// string state = data.state.substr(0, 15) + "DCBA" + data.state.substr(15) + "~~~~";
 	state_t initial_state = {state, 0};
 
-	show_state(initial_state);
+	// show_state(initial_state);
 	show_state_compact(initial_state);
+	// show_state(final_state);
 	show_state_compact(final_state);
 
 	return dijkstra(initial_state, final_state);
