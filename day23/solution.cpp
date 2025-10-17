@@ -1,3 +1,4 @@
+#include <unistd.h>     // getopt
 #include <chrono>       // high resolution timer
 #include <cstring>      // strtok, strdup
 #include <fstream>      // ifstream (reading file)
@@ -18,20 +19,21 @@
 
 using namespace std;
 
+
+/* final result is a very long unsigned int */
+using result_t = uint64_t;
+
+/* 
+ * state of the system, including cost to reach this state
+ * represented as a string which can be hashed easily.
+ */
 struct state_t {
 	std::string state;
 	size_t cost;
 
+	// needed for hasing and equality comparison
 	bool operator==(const state_t &other) const {
 		return state == other.state;
-	}
-
-	bool operator!=(const state_t &other) const {
-		return state != other.state;
-	}
-
-	bool operator<(const state_t &other) const {
-		return cost < other.cost;
 	}
 };
 
@@ -43,11 +45,12 @@ struct std::hash<state_t> {
 	}
 };
 
-// using state_t = string;
-using result_t = string;
-
 const state_t read_data(const string &filename);
 template <typename T> void print_result(T result, chrono::duration<double, milli> duration);
+
+void show_compact_state(const state_t &state) {
+	cout << state.state << "  \t" << state.cost << endl;
+}
 
 void show_state(const state_t &state) {
 	string board = "#############\n#...........#\n###.#.#.#.###\n  #.#.#.#.#\n  #########";
@@ -75,28 +78,25 @@ void show_state(const state_t &state) {
 	cout << board << "  \t" << state.cost << endl;
 }
 
-// Valid moves from each position
-// 0 -> 1
-// 1 -> 0, 3	-> 11
-// 3 -> 1, 5	-> 11, 12
-// 5 -> 3, 7	-> 12, 13
-// 7 -> 5, 9	-> 13, 14
-// 9 -> 7, 10	-> 14
-// 10 -> 9
-// 11 -> 1, 3, 15
-// 12 -> 3, 5, 16
-// 13 -> 5, 7, 17
-// 14 -> 7, 9, 18
-// 15 -> 11
-// 16 -> 12
-// 17 -> 13
-// 18 -> 14
+// Valid moves from each position, represented as a map/graph
+// of position index to vector of move_t structs which include
+// position index, cost to move there, and restriction (which amphipod can go there
 struct move_t {
 	size_t position;	// position index
 	size_t cost;		// cost to move here
 	char restriction;	// only this amphipod can go here, '.' means any
 };
 
+/*
+Positions 2, 4, 6, and 8 are not valid stopping points in the hallway.
+They don't appear in the graph but the paths that go through them have
+cost multipler of 2 to account for the extra step.
+	0  1  2  3  4  5  6  7  8  9 10
+     	 11    12    13    14
+     	 15    16    17    18
+		 19    20    21    22 (part 2)
+		 23    24    25    25 (part 2)
+*/
 const std::map<size_t, std::vector<move_t>> all_moves = {
 	{0, {{1, 1, '.'}}},
 	{1, {{0, 1, '.'}, {3, 2, '.'}, {11, 2, 'A'}}},
@@ -115,56 +115,28 @@ const std::map<size_t, std::vector<move_t>> all_moves = {
 	{18, {{14, 1, 'D'}}},
 };
 
-const std::map<char, size_t> amphipod_cost = {
-	{'A', 1},
-	{'B', 10},
-	{'C', 100},
-	{'D', 1000},
-};
-
-const std::map<char, std::vector<size_t>> amphipod_home = {
+const std::map<char, std::vector<size_t>> amphipod_homes = {
 	{'A', {11, 15}},
 	{'B', {12, 16}},
 	{'C', {13, 17}},
 	{'D', {14, 18}},
 };
 
-// bool is_home(const state_t &state, size_t pos) {
-// 	char amphipod = state.state[pos];
-
-// 	if (pos < 10) {
-// 		return false;
-// 	}
-
-// 	if (room_contains_only(state, amphipod) == false) {
-// 		return false;
-// 	}
-
-// 	if (amphipod_home.contains(amphipod)) {
-// 		size_t h_1 = amphipod_home.at(amphipod)[0];
-// 		size_t h_2 = amphipod_home.at(amphipod)[1];
-// 		if (pos == h_2 || (pos == h_1 && state.state[h_2] == amphipod)) {
-// 			return true;
-// 		}
-// 	}
-
-// 	return false;
-// }
-
-bool room_contains_only(const state_t &state, char amphipod) {
-	// does the amphipod's home room contain only '.' or the amphipod?
-	if (amphipod_home.contains(amphipod)) {
-		for (auto pos : amphipod_home.at(amphipod)) {
-			if (state.state[pos] != '.' && state.state[pos] != amphipod) {
-				return false;
-			}
-		}
-
-		return true;
+size_t amphipod_cost(char amphipod) {
+	switch (amphipod) {
+		case 'A':
+			return 1;
+		case 'B':
+			return 10;
+		case 'C':
+			return 100;
+		case 'D':
+			return 1000;
+		default:
+			return 0;
 	}
-
-	return false;
 }
+
 
 vector<size_t> find_amphipods(const state_t &state) {
 	vector<size_t> positions;
@@ -178,24 +150,61 @@ vector<size_t> find_amphipods(const state_t &state) {
 	return positions;
 }
 
-// is the amphipod at pos in it's home room?
-bool in_home(const state_t &state, size_t pos) {
+bool is_occupied(const state_t &state, size_t pos) {
+	return state.state[pos] != '.';
+}
 
-	if (pos < 10) {
-		return false;
-	}
+bool is_room(size_t pos) {
+	return pos >= 11;
+}
 
-	char amphipod = state.state[pos];
-	if (amphipod_home.contains(amphipod)) {
-		for (auto home_pos : amphipod_home.at(amphipod)) {
-			if (pos == home_pos) {
-				return true;
-			}
-		}
+// is the amphipod at pos in its home room?
+bool is_home_room(const state_t &state, size_t pos) {
+	if (is_room(pos)) {
+		char amphipod = state.state[pos];
+
+		assert(amphipod_homes.contains(amphipod));
+
+		auto rooms = amphipod_homes.at(amphipod);
+		return std::find(rooms.begin(), rooms.end(), pos) != rooms.end();
 	}
 
 	return false;
 }
+
+// does the amphipod's room contain only '.' or the amphipods that belong there?
+bool room_contains_only(const state_t &state, char amphipod) {
+	assert(amphipod_homes.contains(amphipod));
+
+	auto rooms = amphipod_homes.at(amphipod);
+	return std::all_of(rooms.begin(), rooms.end(), [&](size_t pos) {
+		return !is_occupied(state, pos) || state.state[pos] == amphipod;
+	});
+}
+/*
+bool can_move(const state_t &state, size_t from, size_t to) {
+	char amphipod = state.state[from];
+
+	if (is_occupied(state, to)) {
+		return false;
+	}
+
+	if (is_room(to) && !is_home_room(state, from)) {
+		assert(amphipod_homes.contains(amphipod));
+
+		auto rooms = amphipod_homes.at(amphipod);
+		if (std::find(rooms.begin(), rooms.end(), to) == rooms.end()) {
+			return false;
+		}
+
+		if (!room_contains_only(state, amphipod)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+*/
 
 // returns valid moves for amphipod at pos, not going back to from while in state
 std::vector<move_t> valid_moves(const state_t &state, size_t pos, size_t from) {
@@ -211,7 +220,7 @@ std::vector<move_t> valid_moves(const state_t &state, size_t pos, size_t from) {
 		}
 
 		// can't move into a spot that has something else in it
-		if (state.state[move.position] != '.') {
+		if (is_occupied(state, move.position)) {
 			if (debug) {
 				std::cout << "  not empty, skip" << endl;
 			}
@@ -234,7 +243,7 @@ std::vector<move_t> valid_moves(const state_t &state, size_t pos, size_t from) {
 			continue;
 		}
 
-		if (in_home(state, pos) && room_contains_only(state, amphipod) && move.position < pos) {
+		if (is_home_room(state, pos) && room_contains_only(state, amphipod) && move.position < pos) {
 			if (debug) {
 				std::cout << "  can't move out of home room, skip" << endl;
 			}
@@ -260,7 +269,7 @@ void next_states(const state_t &state, size_t pos, size_t from, unordered_set<st
 	for (const auto &move : valid_moves(state, pos, from)) {
 		state_t new_state = state;
 		swap(new_state.state[pos], new_state.state[move.position]);
-		new_state.cost += amphipod_cost.at(amphipod) * move.cost;
+		new_state.cost += amphipod_cost(amphipod) * move.cost;
 
 		if (!states.contains(new_state) || states.find(new_state)->cost > new_state.cost) {
 			// remove existing higher cost state
@@ -304,11 +313,10 @@ class compare_cost {
 		}
 };
 
-string final_state_str = "...........ABCDABCD";
+result_t dijkstra(const state_t &initial_state, const state_t &final_state) {
+	bool debug = false;
 
-void dijkstra(const state_t &initial_state) {
 	std::priority_queue<state_t, std::vector<state_t>, compare_cost> Q;
-
 	std::map<string, size_t> dist;
 
 	Q.push(initial_state);
@@ -317,14 +325,12 @@ void dijkstra(const state_t &initial_state) {
 	size_t iterations = 0;
 
 	while (!Q.empty()) {
-		if (++iterations % 10000 == 0) {
+		if (debug && ++iterations % 10000 == 0) {
 			cout << "\33[2K\r" << iterations << " iterations, " << Q.size() << " states in queue, " << dist.size() << " total states.";
 			cout << std::flush;
 		}
 
-		// u <= vertex in Q with min dist[u]
 		state_t u = Q.top();
-		// remove u from Q
 		Q.pop();
 
 		auto states = next_states(u);
@@ -337,21 +343,27 @@ void dijkstra(const state_t &initial_state) {
 		}
 	}
 
-	cout << "Dijkstra complete after " << iterations << " iterations, " << dist.size() << " total states." << endl;
-	for (auto [state, cost] : dist) {
-		if (state == final_state_str) {
-			cout << endl;
-			cout << state << "\t" << cost;
-			cout << " Final state!";
-			cout << endl;
+	if (debug) {
+		cout << "Dijkstra complete after " << iterations << " iterations, " << dist.size() << " total states." << endl;
+		for (auto [state, cost] : dist) {
+			if (state == final_state.state) {
+				cout << endl;
+				cout << state << "\t" << cost;
+				cout << " Final state!";
+				cout << endl;
+			}
 		}
 	}
+
+	return dist[final_state.state];
 }
 
 
 /* Part 1 */
-const result_t part1([[maybe_unused]] const state_t &initial_state) {
+result_t part1([[maybe_unused]] const state_t &initial_state) {
 	bool debug = false;
+
+	state_t final_state = {"...........ABCDABCD", 0};
 
 	cout << "Initial state:" << endl;
 	show_state(initial_state);
@@ -364,14 +376,14 @@ const result_t part1([[maybe_unused]] const state_t &initial_state) {
 			cout << endl;
 		}
 	} else {
-		dijkstra(initial_state);
+		return dijkstra(initial_state, final_state);
 	}
 
-	return to_string(initial_state.state.size());
+	return 0;
 }
 
-const result_t part2([[maybe_unused]] const state_t &initial_state) {
-	return to_string(0);
+result_t part2([[maybe_unused]] const state_t &initial_state) {
+	return 0;
 }
 
 const state_t read_data(const string &filename) {
